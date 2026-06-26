@@ -11,7 +11,6 @@ import '../../models/schedule_plan.dart';
 import '../../models/schedule_task.dart';
 import '../../providers/providers.dart';
 import '../../theme/species_theme.dart';
-import '../../utils/schedule_plan.dart';
 import '../../utils/schedule_time.dart';
 import '../../widgets/schedule_block.dart';
 import '../../widgets/section_divider.dart';
@@ -64,10 +63,11 @@ class _DayScreenState extends ConsumerState<DayScreen> {
     try {
       final scheduleService = ref.read(scheduleServiceProvider);
       final plans = await scheduleService.getPlans();
-      final plan = resolvePlanForPet(plans, widget.pet, widget.date);
-      final tasks = plan != null
-          ? await scheduleService.getTasksForPlan(plan.id)
-          : <ScheduleTask>[];
+      final schedule = await scheduleService.getScheduleForPet(
+        pet: widget.pet,
+        plans: plans,
+        referenceDate: widget.date,
+      );
       final completions = await scheduleService.getCompletionsForDate(
         householdId: profile!.householdId!,
         petId: widget.pet.id,
@@ -84,8 +84,8 @@ class _DayScreenState extends ConsumerState<DayScreen> {
 
       if (mounted) {
         setState(() {
-          _plan = plan;
-          _tasks = sortTasksChronologically(tasks);
+          _plan = schedule.plan;
+          _tasks = sortTasksChronologically(schedule.tasks);
           _completions = {for (final c in completions) c.taskId: c};
           _loading = false;
         });

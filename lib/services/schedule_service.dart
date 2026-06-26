@@ -1,8 +1,10 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/completion.dart';
+import '../models/pet.dart';
 import '../models/schedule_plan.dart';
 import '../models/schedule_task.dart';
+import '../utils/schedule_plan.dart';
 
 class ScheduleService {
   ScheduleService(this._client);
@@ -22,6 +24,8 @@ class ScheduleService {
   }
 
   Future<List<ScheduleTask>> getTasksForPlan(String planId) async {
+    if (planId.trim().isEmpty) return [];
+
     final data = await _client
         .from('schedule_tasks')
         .select()
@@ -30,7 +34,22 @@ class ScheduleService {
 
     return (data as List)
         .map((row) => ScheduleTask.fromJson(row as Map<String, dynamic>))
+        .where((task) => task.planId == planId)
         .toList();
+  }
+
+  Future<({SchedulePlan? plan, List<ScheduleTask> tasks})> getScheduleForPet({
+    required Pet pet,
+    required List<SchedulePlan> plans,
+    DateTime? referenceDate,
+  }) async {
+    final plan = resolvePlanForPet(plans, pet, referenceDate);
+    if (plan == null) {
+      return (plan: null, tasks: <ScheduleTask>[]);
+    }
+
+    final tasks = await getTasksForPlan(plan.id);
+    return (plan: plan, tasks: tasks);
   }
 
   Future<List<Completion>> getCompletionsForDate({

@@ -5,6 +5,7 @@ import 'package:table_calendar/table_calendar.dart';
 
 import '../../models/pet.dart';
 import '../../models/schedule_plan.dart';
+import '../../models/schedule_task.dart';
 import '../../providers/providers.dart';
 import '../../theme/species_theme.dart';
 import '../../utils/pet_age.dart';
@@ -53,10 +54,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     try {
       final scheduleService = ref.read(scheduleServiceProvider);
       final plans = await scheduleService.getPlans();
-      final plan = pet != null ? resolvePlanForPet(plans, pet) : null;
-      final tasks = plan != null
-          ? await scheduleService.getTasksForPlan(plan.id)
-          : <dynamic>[];
+      final schedule = pet != null
+          ? await scheduleService.getScheduleForPet(
+              pet: pet,
+              plans: plans,
+            )
+          : (plan: null, tasks: <ScheduleTask>[]);
       final counts = pet != null
           ? await scheduleService.getCompletionCountsForMonth(
               householdId: profile!.householdId!,
@@ -67,7 +70,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
       if (mounted) {
         setState(() {
-          _taskCount = tasks.length;
+          _taskCount = schedule.tasks.length;
           _completionCounts = counts;
           _loading = false;
         });
