@@ -6,6 +6,7 @@ import 'package:table_calendar/table_calendar.dart';
 import '../../models/schedule_task.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/pet_age.dart';
 import '../../widgets/completion_indicator.dart';
 import '../day/day_screen.dart';
 import '../settings/settings_screen.dart';
@@ -70,6 +71,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     );
     ref.invalidate(profileProvider);
     ref.invalidate(householdProvider);
+    ref.invalidate(petsProvider);
     await _loadData();
   }
 
@@ -95,6 +97,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(profileProvider);
     final householdAsync = ref.watch(householdProvider);
+    final petsAsync = ref.watch(petsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -112,6 +115,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (profile) {
           final householdName = householdAsync.valueOrNull?.name;
+          final petsLine = formatPetsLine(petsAsync.valueOrNull ?? const []);
 
           return RefreshIndicator(
             onRefresh: _loadData,
@@ -120,6 +124,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               children: [
                 _HeaderCard(
                   householdName: householdName,
+                  petsLine: petsLine,
                   profileName: profile?.displayName,
                 ),
                 const SizedBox(height: 16),
@@ -198,9 +203,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 }
 
 class _HeaderCard extends StatelessWidget {
-  const _HeaderCard({this.householdName, this.profileName});
+  const _HeaderCard({this.householdName, this.petsLine, this.profileName});
 
   final String? householdName;
+  final String? petsLine;
   final String? profileName;
 
   @override
@@ -228,9 +234,10 @@ class _HeaderCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                const Text(
-                  '8–12 weeks • Wakeup 5:30 AM • Bedtime 9:30 PM',
-                  style: TextStyle(fontSize: 12, color: AppColors.headerSubtitle),
+                Text(
+                  petsLine ??
+                      '8–12 weeks • Wakeup 5:30 AM • Bedtime 9:30 PM',
+                  style: const TextStyle(fontSize: 12, color: AppColors.headerSubtitle),
                 ),
                 if (profileName != null) ...[
                   const SizedBox(height: 4),

@@ -104,6 +104,21 @@ class AuthService {
         .eq('id', user.id);
   }
 
+  Future<void> updateHouseholdName(String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError('Household name is required.');
+    }
+
+    final profile = await getProfile();
+    if (profile?.householdId == null) throw StateError('Not in a household');
+
+    await _client
+        .from('households')
+        .update({'name': trimmed})
+        .eq('id', profile!.householdId!);
+  }
+
   Future<void> updatePassword(String newPassword) async {
     if (currentUser == null) throw StateError('Not signed in');
     await _client.auth.updateUser(UserAttributes(password: newPassword));

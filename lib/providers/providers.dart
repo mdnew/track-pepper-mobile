@@ -2,8 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/household.dart';
+import '../models/pet.dart';
 import '../models/profile.dart';
 import '../services/auth_service.dart';
+import '../services/pets_service.dart';
 import '../services/schedule_service.dart';
 
 final supabaseClientProvider = Provider<SupabaseClient>((ref) {
@@ -16,6 +18,13 @@ final authServiceProvider = Provider<AuthService>((ref) {
 
 final scheduleServiceProvider = Provider<ScheduleService>((ref) {
   return ScheduleService(ref.watch(supabaseClientProvider));
+});
+
+final petsServiceProvider = Provider<PetsService>((ref) {
+  return PetsService(
+    ref.watch(supabaseClientProvider),
+    ref.watch(authServiceProvider),
+  );
 });
 
 final authStateProvider = StreamProvider<AuthState>((ref) {
@@ -37,4 +46,11 @@ final householdProvider = FutureProvider<Household?>((ref) async {
   if (profile?.householdId == null) return null;
 
   return ref.watch(authServiceProvider).getHousehold();
+});
+
+final petsProvider = FutureProvider<List<Pet>>((ref) async {
+  final profile = await ref.watch(profileProvider.future);
+  if (profile?.householdId == null) return [];
+
+  return ref.watch(petsServiceProvider).getPets();
 });
