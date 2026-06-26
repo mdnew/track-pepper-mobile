@@ -69,6 +69,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
     );
     ref.invalidate(profileProvider);
+    ref.invalidate(householdProvider);
     await _loadData();
   }
 
@@ -93,6 +94,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(profileProvider);
+    final householdAsync = ref.watch(householdProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -109,12 +111,17 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (profile) {
+          final householdName = householdAsync.valueOrNull?.name;
+
           return RefreshIndicator(
             onRefresh: _loadData,
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                _HeaderCard(profileName: profile?.displayName),
+                _HeaderCard(
+                  householdName: householdName,
+                  profileName: profile?.displayName,
+                ),
                 const SizedBox(height: 16),
                 Card(
                   child: Padding(
@@ -191,8 +198,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 }
 
 class _HeaderCard extends StatelessWidget {
-  const _HeaderCard({this.profileName});
+  const _HeaderCard({this.householdName, this.profileName});
 
+  final String? householdName;
   final String? profileName;
 
   @override
@@ -212,7 +220,7 @@ class _HeaderCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Puppy Daily Schedule',
+                  householdName ?? 'Daily Schedule',
                   style: GoogleFonts.nunito(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,

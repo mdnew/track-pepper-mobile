@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../models/household.dart';
 import '../models/profile.dart';
 import '../services/auth_service.dart';
 import '../services/schedule_service.dart';
@@ -29,4 +30,11 @@ final profileProvider = FutureProvider<Profile?>((ref) async {
   if (session == null) return null;
 
   return ref.watch(authServiceProvider).getProfile();
+});
+
+final householdProvider = FutureProvider<Household?>((ref) async {
+  final profile = await ref.watch(profileProvider.future);
+  if (profile?.householdId == null) return null;
+
+  return ref.watch(authServiceProvider).getHousehold();
 });
