@@ -1,0 +1,21 @@
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+coverage/
+
+# Credentials
+dart_defines.json
+
+# IntelliJ / IDE
+*.iml
+.idea/
+
+# macOS
+.DS_Store
+
+# iOS
+**/ios/Flutter/.last_build_id
+ios/Pods/
