@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/completion.dart';
+import '../models/schedule_plan.dart';
 import '../models/schedule_task.dart';
 
 class ScheduleService {
@@ -8,10 +9,23 @@ class ScheduleService {
 
   final SupabaseClient _client;
 
-  Future<List<ScheduleTask>> getTasks() async {
+  Future<List<SchedulePlan>> getPlans() async {
+    final data = await _client
+        .from('schedule_plans')
+        .select()
+        .order('species')
+        .order('min_age_days');
+
+    return (data as List)
+        .map((row) => SchedulePlan.fromJson(row as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<ScheduleTask>> getTasksForPlan(String planId) async {
     final data = await _client
         .from('schedule_tasks')
         .select()
+        .eq('plan_id', planId)
         .order('sort_order', ascending: true);
 
     return (data as List)
@@ -21,6 +35,7 @@ class ScheduleService {
 
   Future<List<Completion>> getCompletionsForDate({
     required String householdId,
+    required String petId,
     required DateTime date,
   }) async {
     final dateStr = _formatDate(date);
@@ -28,6 +43,7 @@ class ScheduleService {
         .from('completions')
         .select('*, profiles!completed_by(display_name)')
         .eq('household_id', householdId)
+        .eq('pet_id', petId)
         .eq('date', dateStr);
 
     return (data as List).map((row) {
@@ -42,6 +58,7 @@ class ScheduleService {
 
   Future<Map<DateTime, int>> getCompletionCountsForMonth({
     required String householdId,
+    required String petId,
     required DateTime month,
   }) async {
     final start = DateTime(month.year, month.month, 1);
@@ -51,6 +68,7 @@ class ScheduleService {
         .from('completions')
         .select('date')
         .eq('household_id', householdId)
+        .eq('pet_id', petId)
         .gte('date', _formatDate(start))
         .lte('date', _formatDate(end));
 
@@ -65,21 +83,27 @@ class ScheduleService {
 
   Future<void> completeTask({
     required String householdId,
+    required String petId,
     required String taskId,
     required DateTime date,
     required String userId,
   }) async {
-    await _client.from('completions').upsert({
-      'household_id': householdId,
-      'task_id': taskId,
-      'date': _formatDate(date),
-      'completed_by': userId,
-      'completed_at': DateTime.now().toUtc().toIso8601String(),
-    });
+    await _client.from('completions').upsert(
+      {
+        'household_id': householdId,
+        'pet_id': petId,
+        'task_id': taskId,
+        'date': _formatDate(date),
+        'completed_by': userId,
+        'completed_at': DateTime.now().toUtc().toIso8601String(),
+      },
+      onConflict: 'pet_id,task_id,date',
+    );
   }
 
   Future<void> uncompleteTask({
     required String householdId,
+    required String petId,
     required String taskId,
     required DateTime date,
   }) async {
@@ -87,16 +111,18 @@ class ScheduleService {
         .from('completions')
         .delete()
         .eq('household_id', householdId)
+        .eq('pet_id', petId)
         .eq('task_id', taskId)
         .eq('date', _formatDate(date));
   }
 
   RealtimeChannel subscribeToCompletions({
     required String householdId,
+    required String petId,
     required DateTime date,
     required void Function() onChange,
   }) {
-    final channel = _client.channel('completions-${_formatDate(date)}');
+    final channel = _client.channel('completions-$petId-${_formatDate(date)}');
     channel.onPostgresChanges(
       event: PostgresChangeEvent.all,
       schema: 'public',

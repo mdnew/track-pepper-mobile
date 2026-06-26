@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../models/completion.dart';
+import '../models/pet.dart';
 import '../models/schedule_task.dart';
 import '../theme/app_theme.dart';
 
@@ -10,25 +11,41 @@ class ScheduleBlock extends StatelessWidget {
   const ScheduleBlock({
     super.key,
     required this.task,
+    required this.species,
     this.completion,
     required this.onToggle,
     this.loading = false,
   });
 
   final ScheduleTask task;
+  final PetSpecies species;
   final Completion? completion;
   final ValueChanged<bool> onToggle;
   final bool loading;
 
   bool get isNight => task.category == 'night';
+  bool get isCat => species == PetSpecies.cat;
   bool get isCompleted => completion != null;
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = AppColors.categoryColor(task.category);
-    final bgColor = AppColors.categoryBackground(task.category);
-    final textColor = isNight ? const Color(0xFFE8E4FF) : AppColors.textPrimary;
-    final timeColor = isNight ? const Color(0xFFA09CC9) : AppColors.textSecondary;
+    final borderColor = AppColors.categoryColor(task.category, species);
+    final bgColor = AppColors.categoryBackground(task.category, species);
+    final textColor = isNight
+        ? const Color(0xFFE8E4FF)
+        : isCat
+            ? const Color(0xFFC8D0E8)
+            : AppColors.textPrimary;
+    final timeColor = isNight
+        ? const Color(0xFFA09CC9)
+        : isCat
+            ? const Color(0xFF8890B0)
+            : AppColors.textSecondary;
+    final attributionColor = isNight
+        ? const Color(0xFFA09CC9)
+        : isCat
+            ? AppColors.catFeed
+            : AppColors.potty;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
@@ -41,17 +58,18 @@ class ScheduleBlock extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SizedBox(
-            width: 72,
-            child: Text(
-              task.timeLabel,
-              style: GoogleFonts.nunito(
-                fontWeight: FontWeight.w800,
-                fontSize: 13,
-                color: timeColor,
+          if (task.timeLabel.isNotEmpty)
+            SizedBox(
+              width: 72,
+              child: Text(
+                task.timeLabel,
+                style: GoogleFonts.nunito(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                  color: timeColor,
+                ),
               ),
             ),
-          ),
           Text(task.icon, style: const TextStyle(fontSize: 20)),
           const SizedBox(width: 10),
           Expanded(
@@ -82,9 +100,7 @@ class ScheduleBlock extends StatelessWidget {
                     'at ${DateFormat.jm().format(completion!.completedAt.toLocal())}',
                     style: TextStyle(
                       fontSize: 11,
-                      color: isNight
-                          ? const Color(0xFFA09CC9)
-                          : AppColors.potty,
+                      color: attributionColor,
                       fontWeight: FontWeight.w600,
                     ),
                   ),

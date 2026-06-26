@@ -43,7 +43,7 @@ String formatPetAge(DateTime dateOfBirth, [DateTime? now]) {
 }
 
 String formatPetSummary(Pet pet) {
-  return '${pet.name} · ${formatPetAge(pet.dateOfBirth)}';
+  return '${pet.species.emoji} ${pet.name} · ${formatPetAge(pet.dateOfBirth)}';
 }
 
 String? formatPetsLine(List<Pet> pets) {

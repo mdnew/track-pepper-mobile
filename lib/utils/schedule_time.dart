@@ -2,30 +2,51 @@ import 'package:intl/intl.dart';
 
 import '../models/schedule_task.dart';
 
-/// Minutes since midnight for sorting (e.g. 1:30 AM → 90, 5:30 AM → 330).
-int scheduleMinutesFromLabel(String timeLabel) {
-  final parsed = DateFormat('h:mm a').parse(timeLabel.trim());
-  return parsed.hour * 60 + parsed.minute;
+int? scheduleMinutesFromLabel(String timeLabel) {
+  final trimmed = timeLabel.trim();
+  if (trimmed.isEmpty || !RegExp(r'\d').hasMatch(trimmed)) {
+    return null;
+  }
+  if (!RegExp(r'am|pm', caseSensitive: false).hasMatch(trimmed)) {
+    return null;
+  }
+
+  try {
+    final parsed = DateFormat('h:mm a').parse(trimmed);
+    return parsed.hour * 60 + parsed.minute;
+  } catch (_) {
+    return null;
+  }
 }
 
 List<ScheduleTask> sortTasksChronologically(List<ScheduleTask> tasks) {
   final sorted = List<ScheduleTask>.from(tasks);
-  sorted.sort(
-    (a, b) => scheduleMinutesFromLabel(a.timeLabel)
-        .compareTo(scheduleMinutesFromLabel(b.timeLabel)),
-  );
+  sorted.sort((a, b) {
+    final orderDiff = a.sortOrder.compareTo(b.sortOrder);
+    if (orderDiff != 0) return orderDiff;
+
+    final aMinutes = scheduleMinutesFromLabel(a.timeLabel);
+    final bMinutes = scheduleMinutesFromLabel(b.timeLabel);
+    if (aMinutes != null && bMinutes != null) {
+      return aMinutes.compareTo(bMinutes);
+    }
+    return 0;
+  });
   return sorted;
 }
 
-/// Index in [sortedTasks] where the current-time marker should appear (0 = before first task).
 int currentTimeInsertIndex(List<ScheduleTask> sortedTasks, DateTime now) {
   final nowMinutes = now.hour * 60 + now.minute;
+  var lastClockIndex = -1;
+
   for (var i = 0; i < sortedTasks.length; i++) {
-    if (scheduleMinutesFromLabel(sortedTasks[i].timeLabel) > nowMinutes) {
-      return i;
-    }
+    final minutes = scheduleMinutesFromLabel(sortedTasks[i].timeLabel);
+    if (minutes == null) continue;
+    lastClockIndex = i;
+    if (minutes > nowMinutes) return i;
   }
-  return sortedTasks.length;
+
+  return lastClockIndex >= 0 ? sortedTasks.length : 0;
 }
 
 bool isSameCalendarDay(DateTime a, DateTime b) {

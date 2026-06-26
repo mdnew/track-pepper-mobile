@@ -4,9 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../theme/app_theme.dart';
 
 class SectionDivider extends StatelessWidget {
-  const SectionDivider({super.key, required this.label});
+  const SectionDivider({super.key, required this.label, this.color});
 
   final String label;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +20,7 @@ class SectionDivider extends StatelessWidget {
           fontSize: 11,
           fontWeight: FontWeight.w700,
           letterSpacing: 1.5,
-          color: AppColors.divider,
+          color: color ?? AppColors.divider,
         ),
       ),
     );

@@ -34,6 +34,7 @@ class PetsService {
   Future<Pet> createPet({
     required String name,
     required DateTime dateOfBirth,
+    required PetSpecies species,
   }) async {
     final householdId = await _requireHouseholdId();
     final trimmed = name.trim();
@@ -47,6 +48,7 @@ class PetsService {
           'household_id': householdId,
           'name': trimmed,
           'date_of_birth': formatDateOfBirth(dateOfBirth),
+          'species': species.toJson(),
         })
         .select()
         .single();
@@ -58,6 +60,7 @@ class PetsService {
     required String id,
     required String name,
     required DateTime dateOfBirth,
+    required PetSpecies species,
   }) async {
     final trimmed = name.trim();
     if (trimmed.isEmpty) {
@@ -67,6 +70,7 @@ class PetsService {
     await _client.from('pets').update({
       'name': trimmed,
       'date_of_birth': formatDateOfBirth(dateOfBirth),
+      'species': species.toJson(),
     }).eq('id', id);
   }
 

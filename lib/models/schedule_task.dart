@@ -1,6 +1,7 @@
 class ScheduleTask {
   const ScheduleTask({
     required this.id,
+    required this.planId,
     required this.sortOrder,
     required this.timeLabel,
     required this.category,
@@ -11,6 +12,7 @@ class ScheduleTask {
   });
 
   final String id;
+  final String planId;
   final int sortOrder;
   final String timeLabel;
   final String category;
@@ -22,6 +24,7 @@ class ScheduleTask {
   factory ScheduleTask.fromJson(Map<String, dynamic> json) {
     return ScheduleTask(
       id: json['id'] as String,
+      planId: json['plan_id'] as String,
       sortOrder: json['sort_order'] as int,
       timeLabel: json['time_label'] as String,
       category: json['category'] as String,

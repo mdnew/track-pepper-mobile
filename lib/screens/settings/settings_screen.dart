@@ -35,6 +35,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String? _error;
   final _newPetNameController = TextEditingController();
   DateTime? _newPetDateOfBirth;
+  PetSpecies _newPetSpecies = PetSpecies.dog;
   bool _addingPet = false;
   String? _savingPetId;
   String? _deletingPetId;
@@ -180,10 +181,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       await ref.read(petsServiceProvider).createPet(
             name: name,
             dateOfBirth: dateOfBirth,
+            species: _newPetSpecies,
           );
       ref.invalidate(petsProvider);
       _newPetNameController.clear();
       _newPetDateOfBirth = null;
+      _newPetSpecies = PetSpecies.dog;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Pet added')),
@@ -445,7 +448,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            'Add each puppy or dog in your household. Ages update automatically from their date of birth.',
+                            'Add each dog or cat in your household. Ages update automatically from their date of birth.',
                             style: TextStyle(
                               fontSize: 12.5,
                               height: 1.5,
@@ -468,13 +471,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                   pet: pet,
                                   saving: _savingPetId == pet.id,
                                   deleting: _deletingPetId == pet.id,
-                                  onSave: (name, dateOfBirth) async {
+                                  onSave: (name, dateOfBirth, species) async {
                                     setState(() => _savingPetId = pet.id);
                                     try {
                                       await ref.read(petsServiceProvider).updatePet(
                                             id: pet.id,
                                             name: name,
                                             dateOfBirth: dateOfBirth,
+                                            species: species,
                                           );
                                       ref.invalidate(petsProvider);
                                       if (mounted) {
@@ -545,6 +549,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               fontSize: 15,
                               fontWeight: FontWeight.w800,
                             ),
+                          ),
+                          const SizedBox(height: 12),
+                          SegmentedButton<PetSpecies>(
+                            segments: const [
+                              ButtonSegment(
+                                value: PetSpecies.dog,
+                                label: Text('🐶 Dog'),
+                              ),
+                              ButtonSegment(
+                                value: PetSpecies.cat,
+                                label: Text('🐱 Cat'),
+                              ),
+                            ],
+                            selected: {_newPetSpecies},
+                            onSelectionChanged: (selection) {
+                              setState(() => _newPetSpecies = selection.first);
+                            },
                           ),
                           const SizedBox(height: 12),
                           TextField(
@@ -658,7 +679,11 @@ class _PetEditorCard extends StatefulWidget {
   final Pet pet;
   final bool saving;
   final bool deleting;
-  final Future<void> Function(String name, DateTime dateOfBirth) onSave;
+  final Future<void> Function(
+    String name,
+    DateTime dateOfBirth,
+    PetSpecies species,
+  ) onSave;
   final Future<void> Function() onDelete;
 
   @override
@@ -668,12 +693,14 @@ class _PetEditorCard extends StatefulWidget {
 class _PetEditorCardState extends State<_PetEditorCard> {
   late final TextEditingController _nameController;
   late DateTime _dateOfBirth;
+  late PetSpecies _species;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.pet.name);
     _dateOfBirth = widget.pet.dateOfBirth;
+    _species = widget.pet.species;
   }
 
   @override
@@ -706,6 +733,23 @@ class _PetEditorCardState extends State<_PetEditorCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          SegmentedButton<PetSpecies>(
+            segments: const [
+              ButtonSegment(
+                value: PetSpecies.dog,
+                label: Text('🐶 Dog'),
+              ),
+              ButtonSegment(
+                value: PetSpecies.cat,
+                label: Text('🐱 Cat'),
+              ),
+            ],
+            selected: {_species},
+            onSelectionChanged: (selection) {
+              setState(() => _species = selection.first);
+            },
+          ),
+          const SizedBox(height: 12),
           TextField(
             controller: _nameController,
             textCapitalization: TextCapitalization.words,
@@ -730,7 +774,11 @@ class _PetEditorCardState extends State<_PetEditorCard> {
               ElevatedButton(
                 onPressed: widget.saving
                     ? null
-                    : () => widget.onSave(_nameController.text, _dateOfBirth),
+                    : () => widget.onSave(
+                          _nameController.text,
+                          _dateOfBirth,
+                          _species,
+                        ),
                 child: Text(widget.saving ? 'Saving…' : 'Save'),
               ),
               const SizedBox(width: 12),

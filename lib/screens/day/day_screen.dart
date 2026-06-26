@@ -6,23 +6,28 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/completion.dart';
+import '../../models/pet.dart';
+import '../../models/schedule_plan.dart';
 import '../../models/schedule_task.dart';
 import '../../providers/providers.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/species_theme.dart';
+import '../../utils/schedule_plan.dart';
 import '../../utils/schedule_time.dart';
 import '../../widgets/schedule_block.dart';
 import '../../widgets/section_divider.dart';
 
 class DayScreen extends ConsumerStatefulWidget {
-  const DayScreen({super.key, required this.date});
+  const DayScreen({super.key, required this.date, required this.pet});
 
   final DateTime date;
+  final Pet pet;
 
   @override
   ConsumerState<DayScreen> createState() => _DayScreenState();
 }
 
 class _DayScreenState extends ConsumerState<DayScreen> {
+  SchedulePlan? _plan;
   List<ScheduleTask> _tasks = [];
   Map<String, Completion> _completions = {};
   final Set<String> _loadingTasks = {};
@@ -35,6 +40,8 @@ class _DayScreenState extends ConsumerState<DayScreen> {
   final GlobalKey _currentSlotKey = GlobalKey();
 
   bool get _isToday => isSameCalendarDay(widget.date, DateTime.now());
+
+  SpeciesTheme get _theme => speciesTheme(widget.pet.species);
 
   @override
   void initState() {
@@ -56,21 +63,28 @@ class _DayScreenState extends ConsumerState<DayScreen> {
     setState(() => _loading = true);
     try {
       final scheduleService = ref.read(scheduleServiceProvider);
-      final tasks = await scheduleService.getTasks();
+      final plans = await scheduleService.getPlans();
+      final plan = resolvePlanForPet(plans, widget.pet, widget.date);
+      final tasks = plan != null
+          ? await scheduleService.getTasksForPlan(plan.id)
+          : <ScheduleTask>[];
       final completions = await scheduleService.getCompletionsForDate(
         householdId: profile!.householdId!,
+        petId: widget.pet.id,
         date: widget.date,
       );
 
       _channel?.unsubscribe();
       _channel = scheduleService.subscribeToCompletions(
         householdId: profile.householdId!,
+        petId: widget.pet.id,
         date: widget.date,
         onChange: () => _refreshCompletions(),
       );
 
       if (mounted) {
         setState(() {
+          _plan = plan;
           _tasks = sortTasksChronologically(tasks);
           _completions = {for (final c in completions) c.taskId: c};
           _loading = false;
@@ -92,6 +106,7 @@ class _DayScreenState extends ConsumerState<DayScreen> {
 
     final completions = await ref.read(scheduleServiceProvider).getCompletionsForDate(
           householdId: profile!.householdId!,
+          petId: widget.pet.id,
           date: widget.date,
         );
     if (mounted) {
@@ -112,6 +127,7 @@ class _DayScreenState extends ConsumerState<DayScreen> {
       if (completed) {
         await service.completeTask(
           householdId: profile!.householdId!,
+          petId: widget.pet.id,
           taskId: task.id,
           date: widget.date,
           userId: user.id,
@@ -119,6 +135,7 @@ class _DayScreenState extends ConsumerState<DayScreen> {
       } else {
         await service.uncompleteTask(
           householdId: profile!.householdId!,
+          petId: widget.pet.id,
           taskId: task.id,
           date: widget.date,
         );
@@ -216,46 +233,66 @@ class _DayScreenState extends ConsumerState<DayScreen> {
     final dateLabel = DateFormat.yMMMMEEEEd().format(widget.date);
     final completedCount = _completions.length;
     final totalCount = _tasks.length;
+    final accent = _theme.progressAccent;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(dateLabel),
+    return Theme(
+      data: Theme.of(context).copyWith(
+        scaffoldBackgroundColor: _theme.background,
+        appBarTheme: AppBarTheme(
+          backgroundColor: _theme.header,
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: _ProgressBanner(
-                    completed: completedCount,
-                    total: totalCount,
-                  ),
-                ),
-                Expanded(
-                  child: RefreshIndicator(
-                    onRefresh: _load,
-                    child: SingleChildScrollView(
-                      controller: _scrollController,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          ..._buildTaskList(),
-                          const SizedBox(height: 16),
-                          _TipBox(),
-                        ],
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(dateLabel),
+        ),
+        body: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                children: [
+                  if (_plan != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                      child: _PlanIntro(plan: _plan!, theme: _theme),
+                    ),
+                  if (_tasks.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                      child: _ProgressBanner(
+                        completed: completedCount,
+                        total: totalCount,
+                        theme: _theme,
+                      ),
+                    ),
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: _load,
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            ..._buildTaskList(accent),
+                            if (_plan?.tipsBody != null) ...[
+                              const SizedBox(height: 16),
+                              _TipBox(plan: _plan!, theme: _theme),
+                            ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+      ),
     );
   }
 
-  List<Widget> _buildTaskList() {
+  List<Widget> _buildTaskList(Color accent) {
     final widgets = <Widget>[];
     String? currentSection;
     final now = DateTime.now();
@@ -264,12 +301,12 @@ class _DayScreenState extends ConsumerState<DayScreen> {
 
     for (final task in _tasks) {
       if (_isToday && taskIndex == nowIndex) {
-        widgets.add(_CurrentTimeLine(key: _nowLineKey, time: now));
+        widgets.add(_CurrentTimeLine(key: _nowLineKey, time: now, accent: accent));
       }
 
       if (task.section != currentSection) {
         currentSection = task.section;
-        widgets.add(SectionDivider(label: currentSection));
+        widgets.add(SectionDivider(label: currentSection, color: _theme.divider));
       }
       widgets.add(
         ScheduleBlock(
@@ -279,6 +316,7 @@ class _DayScreenState extends ConsumerState<DayScreen> {
                   ? _currentSlotKey
                   : null,
           task: task,
+          species: widget.pet.species,
           completion: _completions[task.id],
           loading: _loadingTasks.contains(task.id),
           onToggle: (v) => _toggleTask(task, v),
@@ -288,17 +326,70 @@ class _DayScreenState extends ConsumerState<DayScreen> {
     }
 
     if (_isToday && nowIndex == _tasks.length) {
-      widgets.add(_CurrentTimeLine(key: _nowLineKey, time: now));
+      widgets.add(_CurrentTimeLine(key: _nowLineKey, time: now, accent: accent));
     }
 
     return widgets;
   }
 }
 
+class _PlanIntro extends StatelessWidget {
+  const _PlanIntro({required this.plan, required this.theme});
+
+  final SchedulePlan plan;
+  final SpeciesTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.introBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.introBorder),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(plan.emoji, style: const TextStyle(fontSize: 28)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  plan.introTitle ?? plan.name,
+                  style: GoogleFonts.nunito(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 17,
+                    color: theme.textPrimary,
+                  ),
+                ),
+                if (plan.introDescription != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    plan.introDescription!,
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.5,
+                      color: theme.textSecondary,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _CurrentTimeLine extends StatelessWidget {
-  const _CurrentTimeLine({super.key, required this.time});
+  const _CurrentTimeLine({super.key, required this.time, required this.accent});
 
   final DateTime time;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
@@ -312,7 +403,7 @@ class _CurrentTimeLine extends StatelessWidget {
             style: GoogleFonts.nunito(
               fontSize: 11,
               fontWeight: FontWeight.w800,
-              color: AppColors.train,
+              color: accent,
             ),
           ),
           const SizedBox(width: 8),
@@ -320,7 +411,7 @@ class _CurrentTimeLine extends StatelessWidget {
             child: Container(
               height: 2,
               decoration: BoxDecoration(
-                color: AppColors.train,
+                color: accent,
                 borderRadius: BorderRadius.circular(1),
               ),
             ),
@@ -329,10 +420,7 @@ class _CurrentTimeLine extends StatelessWidget {
           Container(
             width: 8,
             height: 8,
-            decoration: const BoxDecoration(
-              color: AppColors.train,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
           ),
         ],
       ),
@@ -341,10 +429,15 @@ class _CurrentTimeLine extends StatelessWidget {
 }
 
 class _ProgressBanner extends StatelessWidget {
-  const _ProgressBanner({required this.completed, required this.total});
+  const _ProgressBanner({
+    required this.completed,
+    required this.total,
+    required this.theme,
+  });
 
   final int completed;
   final int total;
+  final SpeciesTheme theme;
 
   @override
   Widget build(BuildContext context) {
@@ -352,7 +445,7 @@ class _ProgressBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.card,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -373,6 +466,7 @@ class _ProgressBanner extends StatelessWidget {
                 style: GoogleFonts.nunito(
                   fontWeight: FontWeight.w800,
                   fontSize: 15,
+                  color: theme.textPrimary,
                 ),
               ),
               Text(
@@ -380,7 +474,7 @@ class _ProgressBanner extends StatelessWidget {
                 style: GoogleFonts.nunito(
                   fontWeight: FontWeight.w800,
                   fontSize: 15,
-                  color: AppColors.potty,
+                  color: theme.progressAccent,
                 ),
               ),
             ],
@@ -391,8 +485,8 @@ class _ProgressBanner extends StatelessWidget {
             child: LinearProgressIndicator(
               value: ratio,
               minHeight: 8,
-              backgroundColor: AppColors.pottyBg,
-              color: AppColors.potty,
+              backgroundColor: theme.progressBg,
+              color: theme.progressAccent,
             ),
           ),
         ],
@@ -402,29 +496,39 @@ class _ProgressBanner extends StatelessWidget {
 }
 
 class _TipBox extends StatelessWidget {
+  const _TipBox({required this.plan, required this.theme});
+
+  final SchedulePlan plan;
+  final SpeciesTheme theme;
+
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.feedBg,
+        color: theme.tipBg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.feed, style: BorderStyle.solid, width: 1),
+        border: Border.all(color: theme.tipBorder),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '🐾 Quick Reminders',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+            plan.tipsTitle ?? 'Key Notes',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: theme.textPrimary,
+            ),
           ),
-          SizedBox(height: 6),
+          const SizedBox(height: 6),
           Text(
-            'Outside within 5–10 min of every meal, nap, and play session. '
-            'Training = 5 min max. Praise every potty outside. Overnight trips '
-            'should be boring on purpose — lights low, no talking beyond a calm '
-            '"good girl." She\'ll drop the overnight trip around 4–5 months.',
-            style: TextStyle(fontSize: 12.5, height: 1.6, color: Color(0xFF5C3A10)),
+            plan.tipsBody!,
+            style: TextStyle(
+              fontSize: 12.5,
+              height: 1.6,
+              color: theme.tipText,
+            ),
           ),
         ],
       ),

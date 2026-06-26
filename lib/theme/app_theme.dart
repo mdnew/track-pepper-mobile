@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../models/pet.dart';
+
 class AppColors {
   static const background = Color(0xFFFFF8F0);
   static const card = Colors.white;
@@ -26,27 +28,72 @@ class AppColors {
   static const windBg = Color(0xFFF5F5F5);
   static const nightBg = Color(0xFF1E1A2E);
 
-  static Color categoryColor(String category) => switch (category) {
-        'potty' => potty,
-        'feed' => feed,
-        'sleep' => sleep,
-        'play' => play,
-        'train' => train,
-        'wind' => wind,
-        'night' => night,
-        _ => wind,
-      };
+  static const catFeed = Color(0xFF7B8FCC);
+  static const catFeedBg = Color(0xFF1A1A30);
+  static const catPlay = Color(0xFF5BAAD0);
+  static const catPlayBg = Color(0xFF1A2530);
+  static const catSleep = Color(0xFF5A5A9A);
+  static const catSleepBg = Color(0xFF1A1A28);
+  static const catGroom = Color(0xFF9A7ACC);
+  static const catGroomBg = Color(0xFF201A30);
+  static const catVet = Color(0xFFCC7A7A);
+  static const catVetBg = Color(0xFF2A1A1A);
+  static const catEnrich = Color(0xFF5AB88A);
+  static const catEnrichBg = Color(0xFF1A2520);
+  static const catNote = Color(0xFF8890B0);
+  static const catNoteBg = Color(0xFF141428);
 
-  static Color categoryBackground(String category) => switch (category) {
-        'potty' => pottyBg,
-        'feed' => feedBg,
-        'sleep' => sleepBg,
-        'play' => playBg,
-        'train' => trainBg,
-        'wind' => windBg,
-        'night' => nightBg,
-        _ => windBg,
+  static Color categoryColor(String category, [PetSpecies species = PetSpecies.dog]) {
+    if (species == PetSpecies.cat) {
+      return switch (category) {
+        'feed' => catFeed,
+        'play' => catPlay,
+        'sleep' => catSleep,
+        'groom' => catGroom,
+        'vet' => catVet,
+        'enrich' => catEnrich,
+        'note' => catNote,
+        _ => catNote,
       };
+    }
+
+    return switch (category) {
+      'potty' => potty,
+      'feed' => feed,
+      'sleep' => sleep,
+      'play' => play,
+      'train' => train,
+      'wind' => wind,
+      'night' => night,
+      _ => wind,
+    };
+  }
+
+  static Color categoryBackground(String category, [PetSpecies species = PetSpecies.dog]) {
+    if (species == PetSpecies.cat) {
+      return switch (category) {
+        'feed' => catFeedBg,
+        'play' => catPlayBg,
+        'sleep' => catSleepBg,
+        'groom' => catGroomBg,
+        'vet' => catVetBg,
+        'enrich' => catEnrichBg,
+        'note' => catNoteBg,
+        _ => catNoteBg,
+      };
+    }
+
+    return switch (category) {
+      'potty' => pottyBg,
+      'feed' => feedBg,
+      'sleep' => sleepBg,
+      'play' => playBg,
+      'train' => trainBg,
+      'wind' => windBg,
+      'night' => nightBg,
+      _ => windBg,
+    };
+  }
 }
 
 class AppTheme {
