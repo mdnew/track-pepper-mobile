@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/schedule_task.dart';
 
 int? scheduleMinutesFromLabel(String timeLabel) {
-  final trimmed = timeLabel.trim();
+  final trimmed = timeLabel.trim().replaceFirst(RegExp(r'^~+'), '');
   if (trimmed.isEmpty || !RegExp(r'\d').hasMatch(trimmed)) {
     return null;
   }
@@ -22,15 +22,15 @@ int? scheduleMinutesFromLabel(String timeLabel) {
 List<ScheduleTask> sortTasksChronologically(List<ScheduleTask> tasks) {
   final sorted = List<ScheduleTask>.from(tasks);
   sorted.sort((a, b) {
-    final orderDiff = a.sortOrder.compareTo(b.sortOrder);
-    if (orderDiff != 0) return orderDiff;
-
     final aMinutes = scheduleMinutesFromLabel(a.timeLabel);
     final bMinutes = scheduleMinutesFromLabel(b.timeLabel);
+
     if (aMinutes != null && bMinutes != null) {
       return aMinutes.compareTo(bMinutes);
     }
-    return 0;
+    if (aMinutes != null) return -1;
+    if (bMinutes != null) return 1;
+    return a.sortOrder.compareTo(b.sortOrder);
   });
   return sorted;
 }

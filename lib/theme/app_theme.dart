@@ -28,20 +28,20 @@ class AppColors {
   static const windBg = Color(0xFFF5F5F5);
   static const nightBg = Color(0xFF1E1A2E);
 
-  static const catFeed = Color(0xFF7B8FCC);
-  static const catFeedBg = Color(0xFF1A1A30);
-  static const catPlay = Color(0xFF5BAAD0);
-  static const catPlayBg = Color(0xFF1A2530);
+  static const catFeed = Color(0xFF5B68A8);
+  static const catFeedBg = Color(0xFFEEF0FA);
+  static const catPlay = Color(0xFF4A8FB8);
+  static const catPlayBg = Color(0xFFE5F2F8);
   static const catSleep = Color(0xFF5A5A9A);
-  static const catSleepBg = Color(0xFF1A1A28);
-  static const catGroom = Color(0xFF9A7ACC);
-  static const catGroomBg = Color(0xFF201A30);
-  static const catVet = Color(0xFFCC7A7A);
-  static const catVetBg = Color(0xFF2A1A1A);
-  static const catEnrich = Color(0xFF5AB88A);
-  static const catEnrichBg = Color(0xFF1A2520);
-  static const catNote = Color(0xFF8890B0);
-  static const catNoteBg = Color(0xFF141428);
+  static const catSleepBg = Color(0xFFEBEBF5);
+  static const catGroom = Color(0xFF7A62A8);
+  static const catGroomBg = Color(0xFFF0EBFA);
+  static const catVet = Color(0xFFB85C5C);
+  static const catVetBg = Color(0xFFFAEEEE);
+  static const catEnrich = Color(0xFF4A9A72);
+  static const catEnrichBg = Color(0xFFE8F5EF);
+  static const catNote = Color(0xFF5C5878);
+  static const catNoteBg = Color(0xFFF0F0F5);
 
   static Color categoryColor(String category, [PetSpecies species = PetSpecies.dog]) {
     if (species == PetSpecies.cat) {

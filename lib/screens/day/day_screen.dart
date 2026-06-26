@@ -11,6 +11,7 @@ import '../../models/schedule_plan.dart';
 import '../../models/schedule_task.dart';
 import '../../providers/providers.dart';
 import '../../theme/species_theme.dart';
+import '../../utils/pet_selection.dart';
 import '../../utils/schedule_time.dart';
 import '../../widgets/schedule_block.dart';
 import '../../widgets/section_divider.dart';
@@ -45,6 +46,7 @@ class _DayScreenState extends ConsumerState<DayScreen> {
   @override
   void initState() {
     super.initState();
+    writeSelectedPetId(widget.pet.id);
     _load();
   }
 
@@ -252,11 +254,6 @@ class _DayScreenState extends ConsumerState<DayScreen> {
             ? const Center(child: CircularProgressIndicator())
             : Column(
                 children: [
-                  if (_plan != null)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                      child: _PlanIntro(plan: _plan!, theme: _theme),
-                    ),
                   if (_tasks.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -317,6 +314,7 @@ class _DayScreenState extends ConsumerState<DayScreen> {
                   : null,
           task: task,
           species: widget.pet.species,
+          theme: _theme,
           completion: _completions[task.id],
           loading: _loadingTasks.contains(task.id),
           onToggle: (v) => _toggleTask(task, v),
@@ -330,58 +328,6 @@ class _DayScreenState extends ConsumerState<DayScreen> {
     }
 
     return widgets;
-  }
-}
-
-class _PlanIntro extends StatelessWidget {
-  const _PlanIntro({required this.plan, required this.theme});
-
-  final SchedulePlan plan;
-  final SpeciesTheme theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: theme.introBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: theme.introBorder),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(plan.emoji, style: const TextStyle(fontSize: 28)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  plan.introTitle ?? plan.name,
-                  style: GoogleFonts.nunito(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 17,
-                    color: theme.textPrimary,
-                  ),
-                ),
-                if (plan.introDescription != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    plan.introDescription!,
-                    style: TextStyle(
-                      fontSize: 13,
-                      height: 1.5,
-                      color: theme.textSecondary,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

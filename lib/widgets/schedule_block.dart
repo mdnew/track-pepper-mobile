@@ -7,11 +7,14 @@ import '../models/pet.dart';
 import '../models/schedule_task.dart';
 import '../theme/app_theme.dart';
 
+import '../theme/species_theme.dart';
+
 class ScheduleBlock extends StatelessWidget {
   const ScheduleBlock({
     super.key,
     required this.task,
     required this.species,
+    this.theme,
     this.completion,
     required this.onToggle,
     this.loading = false,
@@ -19,33 +22,24 @@ class ScheduleBlock extends StatelessWidget {
 
   final ScheduleTask task;
   final PetSpecies species;
+  final SpeciesTheme? theme;
   final Completion? completion;
   final ValueChanged<bool> onToggle;
   final bool loading;
 
   bool get isNight => task.category == 'night';
-  bool get isCat => species == PetSpecies.cat;
   bool get isCompleted => completion != null;
 
   @override
   Widget build(BuildContext context) {
     final borderColor = AppColors.categoryColor(task.category, species);
     final bgColor = AppColors.categoryBackground(task.category, species);
-    final textColor = isNight
-        ? const Color(0xFFE8E4FF)
-        : isCat
-            ? const Color(0xFFC8D0E8)
-            : AppColors.textPrimary;
-    final timeColor = isNight
-        ? const Color(0xFFA09CC9)
-        : isCat
-            ? const Color(0xFF8890B0)
-            : AppColors.textSecondary;
-    final attributionColor = isNight
-        ? const Color(0xFFA09CC9)
-        : isCat
-            ? AppColors.catFeed
-            : AppColors.potty;
+    final primaryText = theme?.textPrimary ?? AppColors.textPrimary;
+    final secondaryText = theme?.textSecondary ?? AppColors.textSecondary;
+    final accentText = theme?.progressAccent ?? AppColors.potty;
+    final textColor = isNight ? const Color(0xFFE8E4FF) : primaryText;
+    final timeColor = isNight ? const Color(0xFFA09CC9) : secondaryText;
+    final attributionColor = isNight ? const Color(0xFFA09CC9) : accentText;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
@@ -89,7 +83,9 @@ class ScheduleBlock extends StatelessWidget {
                     task.subtitle!,
                     style: TextStyle(
                       fontSize: 12,
-                      color: textColor.withValues(alpha: 0.75),
+                      color: isNight
+                          ? textColor.withValues(alpha: 0.75)
+                          : secondaryText,
                       height: 1.4,
                     ),
                   ),

@@ -30,6 +30,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _savingName = false;
   bool _savingHouseholdName = false;
   bool _savingPassword = false;
+  bool _editingName = false;
+  bool _editingHouseholdName = false;
+  bool _editingPassword = false;
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
   String? _error;
@@ -37,6 +40,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   DateTime? _newPetDateOfBirth;
   PetSpecies _newPetSpecies = PetSpecies.dog;
   bool _addingPet = false;
+  bool _showAddPetForm = false;
+  String? _editingPetId;
   String? _savingPetId;
   String? _deletingPetId;
 
@@ -78,6 +83,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _members = members;
           _pets = pets;
           _loading = false;
+          _editingName = false;
+          _editingHouseholdName = false;
+          _editingPassword = false;
+          _editingPetId = null;
         });
       }
     } catch (e) {
@@ -102,6 +111,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Name updated')),
         );
+        setState(() => _editingName = false);
         await _load();
       }
     } catch (e) {
@@ -127,6 +137,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Household name updated')),
         );
+        setState(() => _editingHouseholdName = false);
         await _load();
       }
     } catch (e) {
@@ -154,6 +165,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Password updated')),
         );
+        setState(() => _editingPassword = false);
       }
     } catch (e) {
       if (mounted) {
@@ -191,6 +203,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Pet added')),
         );
+        setState(() => _showAddPetForm = false);
         await _load();
       }
     } catch (e) {
@@ -250,31 +263,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     const SizedBox(height: 16),
                   ],
                   _SectionCard(
-                    title: 'Your profile',
+                    title: 'Profile',
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        TextField(
+                        _EditableTextSetting(
+                          label: 'Display name',
+                          value: _nameController.text,
+                          editing: _editingName,
                           controller: _nameController,
-                          textCapitalization: TextCapitalization.words,
-                          decoration: const InputDecoration(
-                            labelText: 'Display name',
-                            hintText: 'e.g. Mom, Dad, Matt',
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        ElevatedButton(
-                          onPressed: _savingName ? null : _saveDisplayName,
-                          child: _savingName
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Text('Save name'),
+                          saving: _savingName,
+                          onEdit: () => setState(() => _editingName = true),
+                          onCancel: () {
+                            ref.read(authServiceProvider).getProfile().then((profile) {
+                              if (!mounted) return;
+                              _nameController.text = profile?.displayName ?? '';
+                              setState(() => _editingName = false);
+                            });
+                          },
+                          onSave: _saveDisplayName,
                         ),
                         if (email != null) ...[
                           const SizedBox(height: 16),
@@ -288,80 +295,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           const SizedBox(height: 4),
                           Text(email, style: const TextStyle(fontSize: 15)),
                         ],
+                        const SizedBox(height: 16),
+                        _EditablePasswordSetting(
+                          editing: _editingPassword,
+                          formKey: _passwordFormKey,
+                          newPasswordController: _newPasswordController,
+                          confirmPasswordController: _confirmPasswordController,
+                          obscureNewPassword: _obscureNewPassword,
+                          obscureConfirmPassword: _obscureConfirmPassword,
+                          saving: _savingPassword,
+                          onEdit: () => setState(() => _editingPassword = true),
+                          onCancel: () {
+                            _newPasswordController.clear();
+                            _confirmPasswordController.clear();
+                            setState(() => _editingPassword = false);
+                          },
+                          onToggleNewPassword: () => setState(
+                            () => _obscureNewPassword = !_obscureNewPassword,
+                          ),
+                          onToggleConfirmPassword: () => setState(
+                            () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                          ),
+                          onSave: _changePassword,
+                        ),
                       ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _SectionCard(
-                    title: 'Password',
-                    child: Form(
-                      key: _passwordFormKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          TextFormField(
-                            controller: _newPasswordController,
-                            obscureText: _obscureNewPassword,
-                            decoration: InputDecoration(
-                              labelText: 'New password',
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscureNewPassword
-                                      ? Icons.visibility_outlined
-                                      : Icons.visibility_off_outlined,
-                                ),
-                                onPressed: () => setState(
-                                  () => _obscureNewPassword = !_obscureNewPassword,
-                                ),
-                              ),
-                            ),
-                            validator: (v) =>
-                                v != null && v.length >= 6 ? null : 'Min 6 characters',
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _confirmPasswordController,
-                            obscureText: _obscureConfirmPassword,
-                            decoration: InputDecoration(
-                              labelText: 'Confirm new password',
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscureConfirmPassword
-                                      ? Icons.visibility_outlined
-                                      : Icons.visibility_off_outlined,
-                                ),
-                                onPressed: () => setState(
-                                  () => _obscureConfirmPassword =
-                                      !_obscureConfirmPassword,
-                                ),
-                              ),
-                            ),
-                            validator: (v) {
-                              if (v == null || v.length < 6) {
-                                return 'Min 6 characters';
-                              }
-                              if (v != _newPasswordController.text) {
-                                return 'Passwords do not match';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          ElevatedButton(
-                            onPressed: _savingPassword ? null : _changePassword,
-                            child: _savingPassword
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text('Update password'),
-                          ),
-                        ],
-                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -371,28 +328,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          TextField(
+                          _EditableTextSetting(
+                            label: 'Household name',
+                            value: _householdNameController.text,
+                            editing: _editingHouseholdName,
                             controller: _householdNameController,
-                            textCapitalization: TextCapitalization.words,
-                            decoration: const InputDecoration(
-                              labelText: 'Household name',
-                              hintText: "e.g. Pepper's Schedule",
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          ElevatedButton(
-                            onPressed:
-                                _savingHouseholdName ? null : _saveHouseholdName,
-                            child: _savingHouseholdName
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text('Save household name'),
+                            saving: _savingHouseholdName,
+                            onEdit: () => setState(() => _editingHouseholdName = true),
+                            onCancel: () {
+                              _householdNameController.text = _household?.name ?? '';
+                              setState(() => _editingHouseholdName = false);
+                            },
+                            onSave: _saveHouseholdName,
                           ),
                           const SizedBox(height: 16),
                           Text(
@@ -438,15 +385,75 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               color: AppColors.textSecondary.withValues(alpha: 0.9),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _SectionCard(
-                      title: 'Pets (${_pets.length})',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
+                          const SizedBox(height: 24),
+                          const Divider(height: 1),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Family members (${_members.length})',
+                            style: GoogleFonts.nunito(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          ..._members.map((member) {
+                            final isYou = member.id ==
+                                ref.read(authServiceProvider).currentUser?.id;
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    backgroundColor: AppColors.sleepBg,
+                                    child: Text(
+                                      member.displayName.isNotEmpty
+                                          ? member.displayName[0].toUpperCase()
+                                          : '?',
+                                      style: const TextStyle(
+                                        color: AppColors.sleep,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          member.displayName,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                        if (isYou)
+                                          const Text(
+                                            'You',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: AppColors.potty,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                          const SizedBox(height: 24),
+                          const Divider(height: 1),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Pets (${_pets.length})',
+                            style: GoogleFonts.nunito(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
                           Text(
                             'Add each dog or cat in your household. Ages update automatically from their date of birth.',
                             style: TextStyle(
@@ -456,21 +463,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          if (_pets.isEmpty)
-                            Text(
-                              'No pets yet.',
-                              style: TextStyle(
-                                color: AppColors.textSecondary.withValues(alpha: 0.9),
-                              ),
-                            )
-                          else
+                          if (_pets.isNotEmpty)
                             ..._pets.map(
                               (pet) => Padding(
                                 padding: const EdgeInsets.only(bottom: 12),
                                 child: _PetEditorCard(
                                   pet: pet,
+                                  editing: _editingPetId == pet.id,
                                   saving: _savingPetId == pet.id,
                                   deleting: _deletingPetId == pet.id,
+                                  onEdit: () => setState(() => _editingPetId = pet.id),
+                                  onCancel: () => setState(() => _editingPetId = null),
                                   onSave: (name, dateOfBirth, species) async {
                                     setState(() => _savingPetId = pet.id);
                                     try {
@@ -485,6 +488,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                         ScaffoldMessenger.of(context).showSnackBar(
                                           const SnackBar(content: Text('Pet updated')),
                                         );
+                                        setState(() => _editingPetId = null);
                                         await _load();
                                       }
                                     } catch (e) {
@@ -542,108 +546,82 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 ),
                               ),
                             ),
-                          const Divider(height: 32),
-                          Text(
-                            'Add a pet',
-                            style: GoogleFonts.nunito(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          SegmentedButton<PetSpecies>(
-                            segments: const [
-                              ButtonSegment(
-                                value: PetSpecies.dog,
-                                label: Text('🐶 Dog'),
+                          if (_showAddPetForm) ...[
+                            if (_pets.isNotEmpty) const SizedBox(height: 8),
+                            Text(
+                              'Add a pet',
+                              style: GoogleFonts.nunito(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
                               ),
-                              ButtonSegment(
-                                value: PetSpecies.cat,
-                                label: Text('🐱 Cat'),
+                            ),
+                            const SizedBox(height: 12),
+                            SegmentedButton<PetSpecies>(
+                              segments: const [
+                                ButtonSegment(
+                                  value: PetSpecies.dog,
+                                  label: Text('🐶 Dog'),
+                                ),
+                                ButtonSegment(
+                                  value: PetSpecies.cat,
+                                  label: Text('🐱 Cat'),
+                                ),
+                              ],
+                              selected: {_newPetSpecies},
+                              onSelectionChanged: (selection) {
+                                setState(() => _newPetSpecies = selection.first);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _newPetNameController,
+                              textCapitalization: TextCapitalization.words,
+                              autofocus: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Name',
+                                hintText: 'Pepper',
                               ),
-                            ],
-                            selected: {_newPetSpecies},
-                            onSelectionChanged: (selection) {
-                              setState(() => _newPetSpecies = selection.first);
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: _newPetNameController,
-                            textCapitalization: TextCapitalization.words,
-                            decoration: const InputDecoration(
-                              labelText: 'Name',
-                              hintText: 'Pepper',
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          OutlinedButton(
-                            onPressed: _pickNewPetDateOfBirth,
-                            child: Text(
-                              _newPetDateOfBirth == null
-                                  ? 'Choose date of birth'
-                                  : 'Born ${formatDateOfBirth(_newPetDateOfBirth!)}',
+                            const SizedBox(height: 12),
+                            OutlinedButton(
+                              onPressed: _pickNewPetDateOfBirth,
+                              child: Text(
+                                _newPetDateOfBirth == null
+                                    ? 'Choose date of birth'
+                                    : 'Born ${formatDateOfBirth(_newPetDateOfBirth!)}',
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          OutlinedButton(
-                            onPressed: _addingPet ? null : _addPet,
-                            child: Text(_addingPet ? 'Adding…' : 'Add pet'),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _SectionCard(
-                      title: 'Family members (${_members.length})',
-                      child: Column(
-                        children: _members.map((member) {
-                          final isYou = member.id ==
-                              ref.read(authServiceProvider).currentUser?.id;
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: Row(
+                            const SizedBox(height: 12),
+                            Row(
                               children: [
-                                CircleAvatar(
-                                  backgroundColor: AppColors.sleepBg,
-                                  child: Text(
-                                    member.displayName.isNotEmpty
-                                        ? member.displayName[0].toUpperCase()
-                                        : '?',
-                                    style: const TextStyle(
-                                      color: AppColors.sleep,
-                                      fontWeight: FontWeight.w700,
-                                    ),
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: _addingPet
+                                        ? null
+                                        : () {
+                                            _newPetNameController.clear();
+                                            _newPetDateOfBirth = null;
+                                            _newPetSpecies = PetSpecies.dog;
+                                            setState(() => _showAddPetForm = false);
+                                          },
+                                    child: const Text('Cancel'),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        member.displayName,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 15,
-                                        ),
-                                      ),
-                                      if (isYou)
-                                        const Text(
-                                          'You',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: AppColors.potty,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                    ],
+                                  child: ElevatedButton(
+                                    onPressed: _addingPet ? null : _addPet,
+                                    child: Text(_addingPet ? 'Adding…' : 'Add pet'),
                                   ),
                                 ),
                               ],
                             ),
-                          );
-                        }).toList(),
+                          ] else
+                            OutlinedButton(
+                              onPressed: () => setState(() => _showAddPetForm = true),
+                              child: const Text('Add pet'),
+                            ),
+                        ],
                       ),
                     ),
                   ],
@@ -670,15 +648,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 class _PetEditorCard extends StatefulWidget {
   const _PetEditorCard({
     required this.pet,
+    required this.editing,
     required this.saving,
     required this.deleting,
+    required this.onEdit,
+    required this.onCancel,
     required this.onSave,
     required this.onDelete,
   });
 
   final Pet pet;
+  final bool editing;
   final bool saving;
   final bool deleting;
+  final VoidCallback onEdit;
+  final VoidCallback onCancel;
   final Future<void> Function(
     String name,
     DateTime dateOfBirth,
@@ -704,6 +688,20 @@ class _PetEditorCardState extends State<_PetEditorCard> {
   }
 
   @override
+  void didUpdateWidget(covariant _PetEditorCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.editing) {
+      _resetFromPet();
+    }
+  }
+
+  void _resetFromPet() {
+    _nameController.text = widget.pet.name;
+    _dateOfBirth = widget.pet.dateOfBirth;
+    _species = widget.pet.species;
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     super.dispose();
@@ -721,8 +719,61 @@ class _PetEditorCardState extends State<_PetEditorCard> {
     }
   }
 
+  void _handleCancel() {
+    setState(() {
+      _nameController.text = widget.pet.name;
+      _dateOfBirth = widget.pet.dateOfBirth;
+      _species = widget.pet.species;
+    });
+    widget.onCancel();
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!widget.editing) {
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.feedBg.withValues(alpha: 0.35),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.feed.withValues(alpha: 0.5)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    formatPetSummary(widget.pet),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Born ${formatDateOfBirth(widget.pet.dateOfBirth)}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary.withValues(alpha: 0.9),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              onPressed: widget.onEdit,
+              icon: const Icon(Icons.edit_outlined, size: 20),
+              tooltip: 'Edit ${widget.pet.name}',
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -753,6 +804,7 @@ class _PetEditorCardState extends State<_PetEditorCard> {
           TextField(
             controller: _nameController,
             textCapitalization: TextCapitalization.words,
+            autofocus: true,
             decoration: const InputDecoration(labelText: 'Name'),
           ),
           const SizedBox(height: 12),
@@ -771,22 +823,268 @@ class _PetEditorCardState extends State<_PetEditorCard> {
           const SizedBox(height: 12),
           Row(
             children: [
-              ElevatedButton(
-                onPressed: widget.saving
-                    ? null
-                    : () => widget.onSave(
-                          _nameController.text,
-                          _dateOfBirth,
-                          _species,
-                        ),
-                child: Text(widget.saving ? 'Saving…' : 'Save'),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: widget.saving || widget.deleting ? null : _handleCancel,
+                  child: const Text('Cancel'),
+                ),
               ),
               const SizedBox(width: 12),
-              TextButton(
-                onPressed: widget.deleting ? null : widget.onDelete,
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: widget.saving
+                      ? null
+                      : () => widget.onSave(
+                            _nameController.text,
+                            _dateOfBirth,
+                            _species,
+                          ),
+                  child: Text(widget.saving ? 'Saving…' : 'Save'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: widget.deleting ? null : widget.onDelete,
+            child: Text(
+              widget.deleting ? 'Removing…' : 'Remove pet',
+              style: const TextStyle(color: AppColors.train),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EditableTextSetting extends StatelessWidget {
+  const _EditableTextSetting({
+    required this.label,
+    required this.value,
+    required this.editing,
+    required this.controller,
+    required this.saving,
+    required this.onEdit,
+    required this.onCancel,
+    required this.onSave,
+  });
+
+  final String label;
+  final String value;
+  final bool editing;
+  final TextEditingController controller;
+  final bool saving;
+  final VoidCallback onEdit;
+  final VoidCallback onCancel;
+  final Future<void> Function() onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!editing) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
                 child: Text(
-                  widget.deleting ? 'Removing…' : 'Remove',
-                  style: const TextStyle(color: AppColors.train),
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary.withValues(alpha: 0.8),
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_outlined, size: 20),
+                tooltip: 'Edit $label',
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value.trim().isEmpty ? 'Not set' : value.trim(),
+            style: const TextStyle(fontSize: 15),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: controller,
+          textCapitalization: TextCapitalization.words,
+          autofocus: true,
+          decoration: InputDecoration(labelText: label),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: saving ? null : onCancel,
+                child: const Text('Cancel'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: saving ? null : onSave,
+                child: saving
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Save'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _EditablePasswordSetting extends StatelessWidget {
+  const _EditablePasswordSetting({
+    required this.editing,
+    required this.formKey,
+    required this.newPasswordController,
+    required this.confirmPasswordController,
+    required this.obscureNewPassword,
+    required this.obscureConfirmPassword,
+    required this.saving,
+    required this.onEdit,
+    required this.onCancel,
+    required this.onToggleNewPassword,
+    required this.onToggleConfirmPassword,
+    required this.onSave,
+  });
+
+  final bool editing;
+  final GlobalKey<FormState> formKey;
+  final TextEditingController newPasswordController;
+  final TextEditingController confirmPasswordController;
+  final bool obscureNewPassword;
+  final bool obscureConfirmPassword;
+  final bool saving;
+  final VoidCallback onEdit;
+  final VoidCallback onCancel;
+  final VoidCallback onToggleNewPassword;
+  final VoidCallback onToggleConfirmPassword;
+  final Future<void> Function() onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!editing) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Password',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary.withValues(alpha: 0.8),
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_outlined, size: 20),
+                tooltip: 'Change password',
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text('••••••••', style: TextStyle(fontSize: 15)),
+        ],
+      );
+    }
+
+    return Form(
+      key: formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextFormField(
+            controller: newPasswordController,
+            obscureText: obscureNewPassword,
+            autofocus: true,
+            decoration: InputDecoration(
+              labelText: 'New password',
+              suffixIcon: IconButton(
+                icon: Icon(
+                  obscureNewPassword
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                ),
+                onPressed: onToggleNewPassword,
+              ),
+            ),
+            validator: (v) =>
+                v != null && v.length >= 6 ? null : 'Min 6 characters',
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: confirmPasswordController,
+            obscureText: obscureConfirmPassword,
+            decoration: InputDecoration(
+              labelText: 'Confirm new password',
+              suffixIcon: IconButton(
+                icon: Icon(
+                  obscureConfirmPassword
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                ),
+                onPressed: onToggleConfirmPassword,
+              ),
+            ),
+            validator: (v) {
+              if (v == null || v.length < 6) {
+                return 'Min 6 characters';
+              }
+              if (v != newPasswordController.text) {
+                return 'Passwords do not match';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: saving ? null : onCancel,
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: saving ? null : onSave,
+                  child: saving
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Update password'),
                 ),
               ),
             ],
