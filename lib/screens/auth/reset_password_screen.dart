@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/logo.dart';
 
 class ResetPasswordScreen extends ConsumerStatefulWidget {
   const ResetPasswordScreen({super.key, required this.onComplete});
@@ -62,7 +63,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 32),
-                const Text('🐶', textAlign: TextAlign.center, style: TextStyle(fontSize: 48)),
+                const Center(child: Logo(variant: LogoVariant.brand)),
                 const SizedBox(height: 12),
                 Text(
                   'Choose a new password',

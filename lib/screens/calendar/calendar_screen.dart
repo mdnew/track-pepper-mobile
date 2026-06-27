@@ -10,6 +10,7 @@ import '../../theme/species_theme.dart';
 import '../../utils/pet_age.dart';
 import '../../utils/pet_selection.dart';
 import '../../widgets/completion_indicator.dart';
+import '../../widgets/logo.dart';
 import '../day/day_screen.dart';
 import '../settings/settings_screen.dart';
 
@@ -165,7 +166,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           ),
           child: Scaffold(
             appBar: AppBar(
-              title: const Text('TrackPepper'),
+              title: const Logo(variant: LogoVariant.header),
               actions: [
                 IconButton(
                   icon: const Icon(Icons.person_outline),

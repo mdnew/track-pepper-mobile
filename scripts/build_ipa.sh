@@ -12,6 +12,8 @@ if [[ ! -f dart_defines.json ]]; then
   exit 1
 fi
 
+./scripts/configure_password_autofill.sh
+
 flutter build ipa \
   --release \
   --dart-define-from-file=dart_defines.json

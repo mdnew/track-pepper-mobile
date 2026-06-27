@@ -120,6 +120,33 @@ class ScheduleService {
     );
   }
 
+  Future<void> completeAllTasks({
+    required String householdId,
+    required String petId,
+    required List<String> taskIds,
+    required DateTime date,
+    required String userId,
+  }) async {
+    if (taskIds.isEmpty) return;
+
+    final completedAt = DateTime.now().toUtc().toIso8601String();
+    final dateStr = _formatDate(date);
+    await _client.from('completions').upsert(
+      [
+        for (final taskId in taskIds)
+          {
+            'household_id': householdId,
+            'pet_id': petId,
+            'task_id': taskId,
+            'date': dateStr,
+            'completed_by': userId,
+            'completed_at': completedAt,
+          },
+      ],
+      onConflict: 'pet_id,task_id,date',
+    );
+  }
+
   Future<void> uncompleteTask({
     required String householdId,
     required String petId,

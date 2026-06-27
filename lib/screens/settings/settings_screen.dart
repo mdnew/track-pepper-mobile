@@ -166,6 +166,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SnackBar(content: Text('Password updated')),
         );
         setState(() => _editingPassword = false);
+        TextInput.finishAutofillContext(shouldSave: true);
       }
     } catch (e) {
       if (mounted) {
@@ -275,7 +276,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           saving: _savingName,
                           onEdit: () => setState(() => _editingName = true),
                           onCancel: () {
-                            ref.read(authServiceProvider).getProfile().then((profile) {
+                            ref
+                                .read(authServiceProvider)
+                                .getProfile()
+                                .then((profile) {
                               if (!mounted) return;
                               _nameController.text = profile?.displayName ?? '';
                               setState(() => _editingName = false);
@@ -289,7 +293,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             'Email',
                             style: TextStyle(
                               fontSize: 12,
-                              color: AppColors.textSecondary.withValues(alpha: 0.8),
+                              color: AppColors.textSecondary
+                                  .withValues(alpha: 0.8),
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -314,7 +319,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             () => _obscureNewPassword = !_obscureNewPassword,
                           ),
                           onToggleConfirmPassword: () => setState(
-                            () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                            () => _obscureConfirmPassword =
+                                !_obscureConfirmPassword,
                           ),
                           onSave: _changePassword,
                         ),
@@ -334,9 +340,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             editing: _editingHouseholdName,
                             controller: _householdNameController,
                             saving: _savingHouseholdName,
-                            onEdit: () => setState(() => _editingHouseholdName = true),
+                            onEdit: () =>
+                                setState(() => _editingHouseholdName = true),
                             onCancel: () {
-                              _householdNameController.text = _household?.name ?? '';
+                              _householdNameController.text =
+                                  _household?.name ?? '';
                               setState(() => _editingHouseholdName = false);
                             },
                             onSave: _saveHouseholdName,
@@ -346,7 +354,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             'Invite code',
                             style: TextStyle(
                               fontSize: 12,
-                              color: AppColors.textSecondary.withValues(alpha: 0.8),
+                              color: AppColors.textSecondary
+                                  .withValues(alpha: 0.8),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -382,7 +391,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             style: TextStyle(
                               fontSize: 12.5,
                               height: 1.5,
-                              color: AppColors.textSecondary.withValues(alpha: 0.9),
+                              color: AppColors.textSecondary
+                                  .withValues(alpha: 0.9),
                             ),
                           ),
                           const SizedBox(height: 24),
@@ -418,7 +428,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           member.displayName,
@@ -459,7 +470,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             style: TextStyle(
                               fontSize: 12.5,
                               height: 1.5,
-                              color: AppColors.textSecondary.withValues(alpha: 0.9),
+                              color: AppColors.textSecondary
+                                  .withValues(alpha: 0.9),
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -472,12 +484,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                   editing: _editingPetId == pet.id,
                                   saving: _savingPetId == pet.id,
                                   deleting: _deletingPetId == pet.id,
-                                  onEdit: () => setState(() => _editingPetId = pet.id),
-                                  onCancel: () => setState(() => _editingPetId = null),
+                                  onEdit: () =>
+                                      setState(() => _editingPetId = pet.id),
+                                  onCancel: () =>
+                                      setState(() => _editingPetId = null),
                                   onSave: (name, dateOfBirth, species) async {
                                     setState(() => _savingPetId = pet.id);
                                     try {
-                                      await ref.read(petsServiceProvider).updatePet(
+                                      await ref
+                                          .read(petsServiceProvider)
+                                          .updatePet(
                                             id: pet.id,
                                             name: name,
                                             dateOfBirth: dateOfBirth,
@@ -485,20 +501,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                           );
                                       ref.invalidate(petsProvider);
                                       if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Pet updated')),
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                              content: Text('Pet updated')),
                                         );
                                         setState(() => _editingPetId = null);
                                         await _load();
                                       }
                                     } catch (e) {
                                       if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('Could not save pet: $e')),
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                              content: Text(
+                                                  'Could not save pet: $e')),
                                         );
                                       }
                                     } finally {
-                                      if (mounted) setState(() => _savingPetId = null);
+                                      if (mounted)
+                                        setState(() => _savingPetId = null);
                                     }
                                   },
                                   onDelete: () async {
@@ -511,11 +533,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                         ),
                                         actions: [
                                           TextButton(
-                                            onPressed: () => Navigator.pop(context, false),
+                                            onPressed: () =>
+                                                Navigator.pop(context, false),
                                             child: const Text('Cancel'),
                                           ),
                                           TextButton(
-                                            onPressed: () => Navigator.pop(context, true),
+                                            onPressed: () =>
+                                                Navigator.pop(context, true),
                                             child: const Text('Remove'),
                                           ),
                                         ],
@@ -525,22 +549,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
                                     setState(() => _deletingPetId = pet.id);
                                     try {
-                                      await ref.read(petsServiceProvider).deletePet(pet.id);
+                                      await ref
+                                          .read(petsServiceProvider)
+                                          .deletePet(pet.id);
                                       ref.invalidate(petsProvider);
                                       if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Pet removed')),
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                              content: Text('Pet removed')),
                                         );
                                         await _load();
                                       }
                                     } catch (e) {
                                       if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('Could not remove pet: $e')),
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                              content: Text(
+                                                  'Could not remove pet: $e')),
                                         );
                                       }
                                     } finally {
-                                      if (mounted) setState(() => _deletingPetId = null);
+                                      if (mounted)
+                                        setState(() => _deletingPetId = null);
                                     }
                                   },
                                 ),
@@ -569,7 +601,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               ],
                               selected: {_newPetSpecies},
                               onSelectionChanged: (selection) {
-                                setState(() => _newPetSpecies = selection.first);
+                                setState(
+                                    () => _newPetSpecies = selection.first);
                               },
                             ),
                             const SizedBox(height: 12),
@@ -602,7 +635,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                             _newPetNameController.clear();
                                             _newPetDateOfBirth = null;
                                             _newPetSpecies = PetSpecies.dog;
-                                            setState(() => _showAddPetForm = false);
+                                            setState(
+                                                () => _showAddPetForm = false);
                                           },
                                     child: const Text('Cancel'),
                                   ),
@@ -611,14 +645,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 Expanded(
                                   child: ElevatedButton(
                                     onPressed: _addingPet ? null : _addPet,
-                                    child: Text(_addingPet ? 'Adding…' : 'Add pet'),
+                                    child: Text(
+                                        _addingPet ? 'Adding…' : 'Add pet'),
                                   ),
                                 ),
                               ],
                             ),
                           ] else
                             OutlinedButton(
-                              onPressed: () => setState(() => _showAddPetForm = true),
+                              onPressed: () =>
+                                  setState(() => _showAddPetForm = true),
                               child: const Text('Add pet'),
                             ),
                         ],
@@ -825,7 +861,8 @@ class _PetEditorCardState extends State<_PetEditorCard> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: widget.saving || widget.deleting ? null : _handleCancel,
+                  onPressed:
+                      widget.saving || widget.deleting ? null : _handleCancel,
                   child: const Text('Cancel'),
                 ),
               ),
@@ -1014,82 +1051,88 @@ class _EditablePasswordSetting extends StatelessWidget {
       );
     }
 
-    return Form(
-      key: formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          TextFormField(
-            controller: newPasswordController,
-            obscureText: obscureNewPassword,
-            autofocus: true,
-            decoration: InputDecoration(
-              labelText: 'New password',
-              suffixIcon: IconButton(
-                icon: Icon(
-                  obscureNewPassword
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
+    return AutofillGroup(
+      child: Form(
+        key: formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextFormField(
+              controller: newPasswordController,
+              obscureText: obscureNewPassword,
+              autofocus: true,
+              autofillHints: const [AutofillHints.newPassword],
+              textInputAction: TextInputAction.next,
+              decoration: InputDecoration(
+                labelText: 'New password',
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    obscureNewPassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                  ),
+                  onPressed: onToggleNewPassword,
                 ),
-                onPressed: onToggleNewPassword,
               ),
+              validator: (v) =>
+                  v != null && v.length >= 6 ? null : 'Min 6 characters',
             ),
-            validator: (v) =>
-                v != null && v.length >= 6 ? null : 'Min 6 characters',
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: confirmPasswordController,
-            obscureText: obscureConfirmPassword,
-            decoration: InputDecoration(
-              labelText: 'Confirm new password',
-              suffixIcon: IconButton(
-                icon: Icon(
-                  obscureConfirmPassword
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: confirmPasswordController,
+              obscureText: obscureConfirmPassword,
+              autofillHints: const [AutofillHints.newPassword],
+              textInputAction: TextInputAction.done,
+              decoration: InputDecoration(
+                labelText: 'Confirm new password',
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    obscureConfirmPassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                  ),
+                  onPressed: onToggleConfirmPassword,
                 ),
-                onPressed: onToggleConfirmPassword,
               ),
+              validator: (v) {
+                if (v == null || v.length < 6) {
+                  return 'Min 6 characters';
+                }
+                if (v != newPasswordController.text) {
+                  return 'Passwords do not match';
+                }
+                return null;
+              },
             ),
-            validator: (v) {
-              if (v == null || v.length < 6) {
-                return 'Min 6 characters';
-              }
-              if (v != newPasswordController.text) {
-                return 'Passwords do not match';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: saving ? null : onCancel,
-                  child: const Text('Cancel'),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: saving ? null : onCancel,
+                    child: const Text('Cancel'),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: saving ? null : onSave,
-                  child: saving
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('Update password'),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: saving ? null : onSave,
+                    child: saving
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Update password'),
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

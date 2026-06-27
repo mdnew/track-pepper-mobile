@@ -9,6 +9,7 @@ import 'screens/auth/onboarding_screen.dart';
 import 'screens/auth/reset_password_screen.dart';
 import 'screens/calendar/calendar_screen.dart';
 import 'theme/app_theme.dart';
+import 'widgets/logo.dart';
 
 class TrackPepperApp extends ConsumerWidget {
   const TrackPepperApp({super.key});
@@ -106,7 +107,7 @@ class _SplashScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('🐶', style: TextStyle(fontSize: 56)),
+            Logo(variant: LogoVariant.brand),
             SizedBox(height: 16),
             CircularProgressIndicator(),
           ],
@@ -130,7 +131,7 @@ class _ConfigErrorScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text('🐶', style: TextStyle(fontSize: 48)),
+              const Logo(variant: LogoVariant.brand),
               const SizedBox(height: 16),
               Text(
                 message,

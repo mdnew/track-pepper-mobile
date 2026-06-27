@@ -32,6 +32,7 @@ class _DayScreenState extends ConsumerState<DayScreen> {
   Map<String, Completion> _completions = {};
   final Set<String> _loadingTasks = {};
   bool _loading = true;
+  bool _markingAll = false;
   bool _hasAutoScrolled = false;
   RealtimeChannel? _channel;
   final ScrollController _scrollController = ScrollController();
@@ -148,6 +149,34 @@ class _DayScreenState extends ConsumerState<DayScreen> {
     }
   }
 
+  Future<void> _markAllCompleted() async {
+    if (_markingAll) return;
+
+    final profile = await ref.read(profileProvider.future);
+    final user = ref.read(authServiceProvider).currentUser;
+    if (profile?.householdId == null || user == null) return;
+
+    final incompleteTaskIds = _tasks
+        .where((task) => !_completions.containsKey(task.id))
+        .map((task) => task.id)
+        .toList();
+    if (incompleteTaskIds.isEmpty) return;
+
+    setState(() => _markingAll = true);
+    try {
+      await ref.read(scheduleServiceProvider).completeAllTasks(
+            householdId: profile!.householdId!,
+            petId: widget.pet.id,
+            taskIds: incompleteTaskIds,
+            date: widget.date,
+            userId: user.id,
+          );
+      await _refreshCompletions();
+    } finally {
+      if (mounted) setState(() => _markingAll = false);
+    }
+  }
+
   void _scrollToCurrentTime() {
     if (_hasAutoScrolled) return;
 
@@ -235,6 +264,7 @@ class _DayScreenState extends ConsumerState<DayScreen> {
     final dateLabel = DateFormat.yMMMMEEEEd().format(widget.date);
     final completedCount = _completions.length;
     final totalCount = _tasks.length;
+    final allCompleted = totalCount > 0 && completedCount >= totalCount;
     final accent = _theme.progressAccent;
 
     return Theme(
@@ -277,6 +307,41 @@ class _DayScreenState extends ConsumerState<DayScreen> {
                             if (_plan?.tipsBody != null) ...[
                               const SizedBox(height: 16),
                               _TipBox(plan: _plan!, theme: _theme),
+                            ],
+                            if (_tasks.isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton(
+                                  onPressed: allCompleted || _markingAll
+                                      ? null
+                                      : _markAllCompleted,
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: _theme.header,
+                                    side: BorderSide(color: _theme.header),
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: _markingAll
+                                      ? SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: _theme.header,
+                                          ),
+                                        )
+                                      : Text(
+                                          'Mark All Completed',
+                                          style: GoogleFonts.nunito(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                ),
+                              ),
                             ],
                           ],
                         ),
