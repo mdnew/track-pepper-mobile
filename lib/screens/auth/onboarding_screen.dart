@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/analytics.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -23,6 +24,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   bool _joiningExisting = true;
   String? _error;
   String? _createdInviteCode;
+
+  @override
+  void initState() {
+    super.initState();
+    Analytics.trackPageView('/onboarding');
+  }
 
   @override
   void dispose() {

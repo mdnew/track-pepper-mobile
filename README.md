@@ -9,8 +9,8 @@ Flutter iOS app for the family puppy schedule.
 Run migrations in order from [`supabase/migrations/`](supabase/migrations/) in your Supabase SQL Editor. See the [web repo](https://github.com/mdnew/track-pepper-web) for the same schema — both apps share one backend.
 
 In **Authentication → URL Configuration**, add:
-- `com.peppertrack.pepperTrack://reset-password`
-- `com.peppertrack.pepperTrack://**`
+- `com.trackpepper.trackPepper://reset-password`
+- `com.trackpepper.trackPepper://**`
 
 ## Run locally
 

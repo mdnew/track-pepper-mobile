@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/analytics.dart';
 import '../../widgets/logo.dart';
 import 'forgot_password_screen.dart';
 
@@ -33,6 +34,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    Analytics.trackPageView('/login');
   }
 
   @override
@@ -83,6 +85,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
 
       await ref.read(authServiceProvider).signIn(email, password);
       ref.invalidate(profileProvider);
+      Analytics.trackSignUp();
       TextInput.finishAutofillContext(shouldSave: true);
     } catch (e) {
       setState(() => _error = e.toString());

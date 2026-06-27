@@ -9,6 +9,7 @@ import '../../providers/providers.dart';
 import '../../theme/species_theme.dart';
 import '../../utils/pet_age.dart';
 import '../../utils/pet_selection.dart';
+import '../../utils/analytics.dart';
 import '../../widgets/completion_indicator.dart';
 import '../../widgets/logo.dart';
 import '../day/day_screen.dart';
@@ -43,6 +44,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   @override
   void initState() {
     super.initState();
+    Analytics.trackPageView('/');
     _init();
   }
 

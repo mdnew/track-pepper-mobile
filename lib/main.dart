@@ -4,9 +4,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
 import 'config/env.dart';
+import 'utils/analytics.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Analytics.init();
 
   if (Env.isConfigured) {
     await Supabase.initialize(

@@ -16,7 +16,7 @@ Build and upload the iOS app from this repo.
 2. **My Apps → + → New App**
 3. Platform: iOS
 4. Name: **TrackPepper**
-5. Bundle ID: `com.peppertrack.pepper_track` (create in Developer portal if needed)
+5. Bundle ID: `com.trackpepper.trackPepper` (create in Developer portal if needed)
 6. SKU: `pepper-track`
 
 ### 2. Xcode signing
@@ -24,7 +24,7 @@ Build and upload the iOS app from this repo.
 1. Open `ios/Runner.xcworkspace` in Xcode
 2. Select **Runner** target → **Signing & Capabilities**
 3. Team: your Apple Developer team
-4. Bundle Identifier: `com.peppertrack.pepper_track`
+4. Bundle Identifier: `com.trackpepper.trackPepper`
 5. Enable **Automatically manage signing**
 
 ### 3. App icon (optional but recommended)

@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config/env.dart';
+import 'models/profile.dart';
 import 'providers/providers.dart';
 import 'screens/auth/auth_screen.dart';
 import 'screens/auth/onboarding_screen.dart';
 import 'screens/auth/reset_password_screen.dart';
 import 'screens/calendar/calendar_screen.dart';
 import 'theme/app_theme.dart';
+import 'utils/analytics.dart';
 import 'widgets/logo.dart';
 
 class TrackPepperApp extends ConsumerWidget {
@@ -37,6 +39,23 @@ class TrackPepperApp extends ConsumerWidget {
       next.whenData((state) {
         if (state.event == AuthChangeEvent.passwordRecovery) {
           ref.read(pendingPasswordRecoveryProvider.notifier).state = true;
+        }
+        _syncAnalyticsIdentity(ref, state.session?.user.id);
+      });
+    });
+
+    ref.listen<AsyncValue<Profile?>>(profileProvider, (previous, next) {
+      next.whenData((profile) {
+        final userId = authState.maybeWhen(
+          data: (state) => state.session?.user.id,
+          orElse: () => null,
+        );
+        if (userId != null) {
+          Analytics.setAnalyticsUser(
+            userId,
+            hasHousehold: profile?.householdId != null,
+            householdId: profile?.householdId,
+          );
         }
       });
     });
@@ -75,6 +94,21 @@ class TrackPepperApp extends ConsumerWidget {
       ),
     );
   }
+}
+
+void _syncAnalyticsIdentity(WidgetRef ref, String? userId) {
+  if (userId == null) {
+    Analytics.setAnalyticsUser(null);
+    return;
+  }
+
+  ref.read(profileProvider.future).then((profile) {
+    Analytics.setAnalyticsUser(
+      userId,
+      hasHousehold: profile?.householdId != null,
+      householdId: profile?.householdId,
+    );
+  });
 }
 
 class _AuthenticatedRouter extends ConsumerWidget {

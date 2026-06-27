@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/analytics.dart';
 import '../../widgets/logo.dart';
 
 class ResetPasswordScreen extends ConsumerStatefulWidget {
@@ -23,6 +24,12 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    Analytics.trackPageView('/reset-password');
+  }
 
   @override
   void dispose() {

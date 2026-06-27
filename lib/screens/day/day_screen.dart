@@ -13,6 +13,9 @@ import '../../providers/providers.dart';
 import '../../theme/species_theme.dart';
 import '../../utils/pet_selection.dart';
 import '../../utils/schedule_time.dart';
+import '../../utils/analytics.dart';
+import '../../config/recommendations.dart';
+import '../../widgets/recommendations_section.dart';
 import '../../widgets/schedule_block.dart';
 import '../../widgets/section_divider.dart';
 
@@ -48,6 +51,7 @@ class _DayScreenState extends ConsumerState<DayScreen> {
   void initState() {
     super.initState();
     writeSelectedPetId(widget.pet.id);
+    Analytics.trackPageView('/day/${formatDateKey(widget.date)}');
     _load();
   }
 
@@ -134,6 +138,13 @@ class _DayScreenState extends ConsumerState<DayScreen> {
           taskId: task.id,
           date: widget.date,
           userId: user.id,
+        );
+        Analytics.trackTaskComplete(
+          taskId: task.id,
+          category: task.category,
+          section: task.section,
+          date: formatDateKey(widget.date),
+          isToday: _isToday,
         );
       } else {
         await service.uncompleteTask(
@@ -307,6 +318,17 @@ class _DayScreenState extends ConsumerState<DayScreen> {
                             if (_plan?.tipsBody != null) ...[
                               const SizedBox(height: 16),
                               _TipBox(plan: _plan!, theme: _theme),
+                            ],
+                            if (recommendationsForSpecies(widget.pet.species)
+                                .isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              RecommendationsSection(
+                                items: recommendationsForSpecies(
+                                  widget.pet.species,
+                                ),
+                                compact: true,
+                                theme: _theme,
+                              ),
                             ],
                             if (_tasks.isNotEmpty) ...[
                               const SizedBox(height: 16),

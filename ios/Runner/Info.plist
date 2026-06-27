@@ -79,7 +79,7 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.peppertrack.pepperTrack</string>
+				<string>com.trackpepper.trackPepper</string>
 			</array>
 		</dict>
 	</array>

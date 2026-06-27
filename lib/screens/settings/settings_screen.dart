@@ -8,7 +8,10 @@ import '../../models/pet.dart';
 import '../../models/profile.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
+import '../../config/recommendations.dart';
+import '../../utils/analytics.dart';
 import '../../utils/pet_age.dart';
+import '../../widgets/recommendations_section.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -48,6 +51,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   void initState() {
     super.initState();
+    Analytics.trackPageView('/settings');
     _load();
   }
 
@@ -658,6 +662,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               child: const Text('Add pet'),
                             ),
                         ],
+                      ),
+                    ),
+                  ],
+                  if (recommendationsForPetSpeciesList(
+                    _pets.map((pet) => pet.species),
+                  ).isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    _SectionCard(
+                      title: 'Our recommendations',
+                      child: RecommendationsSection(
+                        items: recommendationsForPetSpeciesList(
+                          _pets.map((pet) => pet.species),
+                        ),
+                        title: '',
                       ),
                     ),
                   ],
