@@ -1,9 +1,5 @@
 {
   "SUPABASE_URL": "https://YOUR_PROJECT.supabase.co",
   "SUPABASE_ANON_KEY": "your_anon_key_here",
-  "PASSWORD_AUTOFILL_DOMAIN": "your-production-domain.com",
-  "GA_IOS_MEASUREMENT_ID": "G-XXXXXXXXXX",
-  "GA_IOS_API_SECRET": "your_ios_measurement_protocol_api_secret",
-  "GA_ANDROID_MEASUREMENT_ID": "G-XXXXXXXXXX",
-  "GA_ANDROID_API_SECRET": "your_android_measurement_protocol_api_secret"
+  "PASSWORD_AUTOFILL_DOMAIN": "your-production-domain.com"
 }

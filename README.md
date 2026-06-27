@@ -39,6 +39,16 @@ Then run `./scripts/configure_password_autofill.sh` (or `./scripts/build_ipa.sh`
 
 The web repo serves `/.well-known/apple-app-site-association` for this linkage. In 1Password, enable **Settings → Security → Autofill from 1Password** on iOS.
 
+## Google Analytics
+
+Mobile analytics uses **Firebase Analytics**, linked to the same GA4 property as web.
+
+1. Register the iOS app in Firebase / GA4 with bundle ID `com.trackpepper.trackPepper`
+2. Download `GoogleService-Info.plist` and place it in `ios/Runner/` (already in the Xcode project)
+3. Rebuild — no extra keys in `dart_defines.json` needed for analytics
+
+When you add Android, download `google-services.json` into `android/app/`.
+
 ## TestFlight
 
 See [`docs/TESTFLIGHT.md`](docs/TESTFLIGHT.md).
