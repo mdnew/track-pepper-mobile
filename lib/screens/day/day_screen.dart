@@ -14,8 +14,6 @@ import '../../theme/species_theme.dart';
 import '../../utils/pet_selection.dart';
 import '../../utils/schedule_time.dart';
 import '../../utils/analytics.dart';
-import '../../config/recommendations.dart';
-import '../../widgets/recommendations_section.dart';
 import '../../widgets/schedule_block.dart';
 import '../../widgets/section_divider.dart';
 
@@ -318,17 +316,6 @@ class _DayScreenState extends ConsumerState<DayScreen> {
                             if (_plan?.tipsBody != null) ...[
                               const SizedBox(height: 16),
                               _TipBox(plan: _plan!, theme: _theme),
-                            ],
-                            if (recommendationsForSpecies(widget.pet.species)
-                                .isNotEmpty) ...[
-                              const SizedBox(height: 16),
-                              RecommendationsSection(
-                                items: recommendationsForSpecies(
-                                  widget.pet.species,
-                                ),
-                                compact: true,
-                                theme: _theme,
-                              ),
                             ],
                             if (_tasks.isNotEmpty) ...[
                               const SizedBox(height: 16),
