@@ -4,11 +4,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../../models/pet.dart';
+import '../../models/schedule_plan.dart';
 import '../../models/schedule_task.dart';
 import '../../providers/providers.dart';
 import '../../theme/species_theme.dart';
 import '../../utils/pet_age.dart';
 import '../../utils/pet_selection.dart';
+import '../../utils/schedule_plan.dart';
 import '../../utils/analytics.dart';
 import '../../widgets/completion_indicator.dart';
 import '../../widgets/logo.dart';
@@ -27,6 +29,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   Map<DateTime, int> _completionCounts = {};
   int _taskCount = 0;
   String? _selectedPetId;
+  Map<String, SchedulePlan?> _plansByPetId = {};
   bool _loading = true;
 
   DateTime _normalize(DateTime d) => DateTime(d.year, d.month, d.day);
@@ -80,6 +83,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               plans: plans,
             )
           : (plan: null, tasks: <ScheduleTask>[]);
+      final plansByPetId = {
+        for (final householdPet in pets)
+          householdPet.id: resolvePlanForPet(plans, householdPet),
+      };
       final counts = pet != null
           ? await scheduleService.getCompletionCountsForMonth(
               householdId: profile!.householdId!,
@@ -92,6 +99,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         setState(() {
           _taskCount = schedule.tasks.length;
           _completionCounts = counts;
+          _plansByPetId = plansByPetId;
           _loading = false;
         });
       }
@@ -182,10 +190,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  if (pets.length > 1) ...[
+                  if (pets.isNotEmpty) ...[
                     _PetSelector(
                       pets: pets,
                       selectedPetId: pet?.id,
+                      plansByPetId: _plansByPetId,
                       theme: theme,
                       onSelect: (petId) async {
                         await writeSelectedPetId(petId);
@@ -290,52 +299,72 @@ class _PetSelector extends StatelessWidget {
   const _PetSelector({
     required this.pets,
     required this.selectedPetId,
+    required this.plansByPetId,
     required this.theme,
     required this.onSelect,
   });
 
   final List<Pet> pets;
   final String? selectedPetId;
+  final Map<String, SchedulePlan?> plansByPetId;
   final SpeciesTheme theme;
   final ValueChanged<String> onSelect;
 
+  TextStyle get _labelStyle => TextStyle(
+        color: theme.textPrimary,
+        fontWeight: FontWeight.w600,
+        fontSize: 14,
+        height: 1.35,
+      );
+
   @override
   Widget build(BuildContext context) {
-    if (pets.length <= 1 || selectedPetId == null) {
+    if (selectedPetId == null) {
       return const SizedBox.shrink();
     }
 
+    final selectedPet = pets.firstWhere((pet) => pet.id == selectedPetId);
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
         color: theme.card,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: theme.introBorder),
       ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: selectedPetId,
-          isExpanded: true,
-          icon: Icon(Icons.expand_more, color: theme.textSecondary),
-          style: TextStyle(
-            color: theme.textPrimary,
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-          ),
-          dropdownColor: theme.card,
-          items: [
-            for (final pet in pets)
-              DropdownMenuItem(
-                value: pet.id,
-                child: Text(formatPetSummary(pet)),
+      child: pets.length <= 1
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Text(
+                formatPetSummaryWithPlan(
+                  selectedPet,
+                  plansByPetId[selectedPet.id],
+                ),
+                style: _labelStyle,
               ),
-          ],
-          onChanged: (id) {
-            if (id != null) onSelect(id);
-          },
-        ),
-      ),
+            )
+          : DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: selectedPetId,
+                isExpanded: true,
+                icon: Icon(Icons.expand_more, color: theme.textSecondary),
+                style: _labelStyle,
+                dropdownColor: theme.card,
+                items: [
+                  for (final pet in pets)
+                    DropdownMenuItem(
+                      value: pet.id,
+                      child: Text(
+                        formatPetSummaryWithPlan(pet, plansByPetId[pet.id]),
+                      ),
+                    ),
+                ],
+                onChanged: (id) {
+                  if (id != null) onSelect(id);
+                },
+              ),
+            ),
     );
   }
 }

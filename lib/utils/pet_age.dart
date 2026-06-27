@@ -1,4 +1,5 @@
 import '../models/pet.dart';
+import '../models/schedule_plan.dart';
 
 DateTime normalizeDate(DateTime date) {
   return DateTime(date.year, date.month, date.day);
@@ -44,6 +45,20 @@ String formatPetAge(DateTime dateOfBirth, [DateTime? now]) {
 
 String formatPetSummary(Pet pet) {
   return '${pet.species.emoji} ${pet.name} · ${formatPetAge(pet.dateOfBirth)}';
+}
+
+String formatPlanPhaseLabel(SchedulePlan plan) {
+  final parenIndex = plan.name.indexOf(' (');
+  if (parenIndex != -1) {
+    return plan.name.substring(0, parenIndex);
+  }
+  return plan.name;
+}
+
+String formatPetSummaryWithPlan(Pet pet, SchedulePlan? plan) {
+  final summary = formatPetSummary(pet);
+  if (plan == null) return summary;
+  return '$summary · ${plan.emoji} ${formatPlanPhaseLabel(plan)}';
 }
 
 String? formatPetsLine(List<Pet> pets) {
