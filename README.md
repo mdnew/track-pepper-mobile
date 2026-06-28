@@ -9,8 +9,8 @@ Flutter iOS app for the family puppy schedule.
 Run migrations in order from [`supabase/migrations/`](supabase/migrations/) in your Supabase SQL Editor. See the [web repo](https://github.com/mdnew/track-pepper-web) for the same schema — both apps share one backend.
 
 In **Authentication → URL Configuration**, add:
-- `com.trackpepper.trackPepper://reset-password`
-- `com.trackpepper.trackPepper://**`
+- `com.mnew.trackPepper://reset-password`
+- `com.mnew.trackPepper://**`
 
 ## Run locally
 
@@ -43,7 +43,7 @@ The web repo serves `/.well-known/apple-app-site-association` for this linkage. 
 
 Mobile analytics uses **Firebase Analytics**, linked to the same GA4 property as web.
 
-1. Register the iOS app in Firebase / GA4 with bundle ID `com.trackpepper.trackPepper`
+1. Register the iOS app in Firebase / GA4 with bundle ID `com.mnew.trackPepper`
 2. Download `GoogleService-Info.plist` and place it in `ios/Runner/` (already in the Xcode project)
 3. Rebuild — no extra keys in `dart_defines.json` needed for analytics
 

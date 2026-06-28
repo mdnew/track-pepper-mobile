@@ -14,7 +14,7 @@ class SectionDivider extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Text(
-        '— $label —',
+        label,
         textAlign: TextAlign.center,
         style: GoogleFonts.nunito(
           fontSize: 11,

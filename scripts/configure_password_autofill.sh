@@ -26,6 +26,14 @@ if [[ -z "$DOMAIN" ]]; then
   exit 0
 fi
 
+# Associated Domains requires a paid Apple Developer Program membership.
+# Personal/free teams (e.g. mdnew@yahoo.com) cannot use this capability.
+if [[ "${SKIP_ASSOCIATED_DOMAINS:-1}" == "1" ]]; then
+  echo "Skipping associated-domains (requires paid Apple Developer Program)."
+  echo "1Password autofill still works; web/mobile credential sync is disabled."
+  exit 0
+fi
+
 DOMAIN="${DOMAIN#https://}"
 DOMAIN="${DOMAIN#http://}"
 DOMAIN="${DOMAIN%%/*}"

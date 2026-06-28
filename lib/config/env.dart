@@ -15,5 +15,5 @@ class Env {
 
   /// Add this URL in Supabase → Authentication → URL Configuration → Redirect URLs.
   static const passwordResetRedirectUrl =
-      'com.trackpepper.trackPepper://reset-password';
+      'com.mnew.trackPepper://reset-password';
 }
