@@ -1,3 +1,5 @@
+import 'demo_mode.dart';
+
 class Env {
   static const supabaseUrl = String.fromEnvironment(
     'SUPABASE_URL',
@@ -9,7 +11,10 @@ class Env {
     defaultValue: 'YOUR_SUPABASE_ANON_KEY',
   );
 
+  static bool get roadmapDemo => isRoadmapDemo;
+
   static bool get isConfigured =>
+      roadmapDemo ||
       !supabaseUrl.contains('YOUR_PROJECT') &&
       supabaseAnonKey != 'YOUR_SUPABASE_ANON_KEY';
 

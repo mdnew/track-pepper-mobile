@@ -101,6 +101,8 @@ PODS:
     - nanopb/encode (= 3.30910.0)
   - nanopb/decode (3.30910.0)
   - nanopb/encode (3.30910.0)
+  - objective_c (0.0.1):
+    - Flutter
   - package_info_plus (0.4.5):
     - Flutter
   - passkeys_darwin (0.0.1):
@@ -121,6 +123,7 @@ DEPENDENCIES:
   - firebase_analytics (from `.symlinks/plugins/firebase_analytics/ios`)
   - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
   - Flutter (from `Flutter`)
+  - objective_c (from `.symlinks/plugins/objective_c/ios`)
   - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
   - passkeys_darwin (from `.symlinks/plugins/passkeys_darwin/darwin`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
@@ -151,6 +154,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/firebase_core/ios"
   Flutter:
     :path: Flutter
+  objective_c:
+    :path: ".symlinks/plugins/objective_c/ios"
   package_info_plus:
     :path: ".symlinks/plugins/package_info_plus/ios"
   passkeys_darwin:
@@ -177,6 +182,7 @@ SPEC CHECKSUMS:
   GoogleAppMeasurement: a6d37949071d456e9147dac6789c4342e0e7a8c5
   GoogleUtilities: 4f2618a4a1e762a1ee134a1e2323bba9843e06da
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
+  objective_c: 89e720c30d716b036faf9c9684022048eee1eee2
   package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
   passkeys_darwin: 395f63bb4dbfe81344ada36400c391e86fc395ea
   PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273

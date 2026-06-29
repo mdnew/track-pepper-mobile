@@ -2,16 +2,25 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/pet.dart';
 
-const _storageKey = 'trackpepper:selectedPetId';
+const _storagePrefix = 'trackpepper:selectedPetId';
 
-Future<String?> readSelectedPetId() async {
+String _storageKey(String householdId) => '$_storagePrefix:$householdId';
+String get _legacyKey => '$_storagePrefix:legacy';
+
+Future<String?> readSelectedPetId({String? householdId}) async {
   final prefs = await SharedPreferences.getInstance();
-  return prefs.getString(_storageKey);
+  if (householdId == null) {
+    return prefs.getString(_legacyKey);
+  }
+  return prefs.getString(_storageKey(householdId));
 }
 
-Future<void> writeSelectedPetId(String petId) async {
+Future<void> writeSelectedPetId({
+  required String householdId,
+  required String petId,
+}) async {
   final prefs = await SharedPreferences.getInstance();
-  await prefs.setString(_storageKey, petId);
+  await prefs.setString(_storageKey(householdId), petId);
 }
 
 String? resolveSelectedPetId(

@@ -3,16 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:table_calendar/table_calendar.dart';
 
+import '../../models/household_membership.dart';
 import '../../models/pet.dart';
 import '../../models/schedule_plan.dart';
 import '../../models/schedule_task.dart';
 import '../../providers/providers.dart';
 import '../../theme/species_theme.dart';
+import '../../utils/analytics.dart';
 import '../../utils/pet_age.dart';
 import '../../utils/pet_selection.dart';
 import '../../utils/schedule_plan.dart';
-import '../../utils/analytics.dart';
 import '../../widgets/completion_indicator.dart';
+import '../../widgets/demo_banner.dart';
+import '../../widgets/household_selector.dart';
 import '../../widgets/logo.dart';
 import '../day/day_screen.dart';
 import '../settings/settings_screen.dart';
@@ -26,9 +29,12 @@ class CalendarScreen extends ConsumerStatefulWidget {
 
 class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   DateTime _focusedDay = DateTime.now();
-  Map<DateTime, int> _completionCounts = {};
-  int _taskCount = 0;
+  Map<DateTime, int> _completionCounts = <DateTime, int>{};
+  Map<DateTime, int> _totalTasksByDay = <DateTime, int>{};
   String? _selectedPetId;
+  String? _activeHouseholdId;
+  List<HouseholdMembership> _memberships = const [];
+  Map<String, List<Pet>> _petsByHouseholdId = const {};
   Map<String, SchedulePlan?> _plansByPetId = {};
   bool _loading = true;
 
@@ -52,25 +58,34 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   }
 
   Future<void> _init() async {
-    _selectedPetId = await readSelectedPetId();
     await _loadData();
   }
 
   Future<void> _loadData() async {
-    final profile = await ref.read(profileProvider.future);
-    if (profile?.householdId == null) return;
+    final activeHouseholdId = await ref.read(activeHouseholdIdProvider.future);
+    if (activeHouseholdId == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
 
-    final pets = await ref.read(petsProvider.future);
-    final petId = resolveSelectedPetId(pets, preferredId: _selectedPetId);
+    final memberships = await ref.read(membershipsProvider.future);
+    final petsByHousehold = await ref.read(petsByHouseholdProvider.future);
+    final pets = petsByHousehold[activeHouseholdId] ?? const <Pet>[];
+    final storedPetId =
+        await readSelectedPetId(householdId: activeHouseholdId) ?? _selectedPetId;
+    final petId = resolveSelectedPetId(pets, preferredId: storedPetId);
     final pet = _petForId(pets, petId);
 
     if (petId != null) {
-      await writeSelectedPetId(petId);
+      await writeSelectedPetId(householdId: activeHouseholdId, petId: petId);
     }
 
     if (mounted) {
       setState(() {
         _selectedPetId = petId;
+        _activeHouseholdId = activeHouseholdId;
+        _memberships = memberships;
+        _petsByHouseholdId = petsByHousehold;
         _loading = true;
       });
     }
@@ -87,19 +102,21 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         for (final householdPet in pets)
           householdPet.id: resolvePlanForPet(plans, householdPet),
       };
-      final counts = pet != null
-          ? await scheduleService.getCompletionCountsForMonth(
-              householdId: profile!.householdId!,
-              petId: pet.id,
-              month: _focusedDay,
-            )
-          : <DateTime, int>{};
+      final aggregated = await scheduleService.getAggregatedCountsForMonth(
+        householdId: activeHouseholdId,
+        pets: pets,
+        plans: plans,
+        month: _focusedDay,
+      );
 
       if (mounted) {
         setState(() {
-          _taskCount = schedule.tasks.length;
-          _completionCounts = counts;
+          _completionCounts = aggregated.completions;
+          _totalTasksByDay = aggregated.totals;
           _plansByPetId = plansByPetId;
+          if (pet == null && schedule.tasks.isNotEmpty) {
+            _totalTasksByDay[_normalize(_focusedDay)] = schedule.tasks.length;
+          }
           _loading = false;
         });
       }
@@ -109,12 +126,15 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   }
 
   Future<void> _openDay(DateTime day, Pet pet) async {
-    await writeSelectedPetId(pet.id);
+    final householdId = _activeHouseholdId;
+    if (householdId == null) return;
+    await writeSelectedPetId(householdId: householdId, petId: pet.id);
     if (!mounted) return;
     setState(() => _selectedPetId = pet.id);
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => DayScreen(date: _normalize(day), pet: pet),
+        builder: (_) =>
+            DayScreen(date: _normalize(day), pet: pet, householdId: householdId),
       ),
     );
     if (!mounted) return;
@@ -128,11 +148,29 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     ref.invalidate(profileProvider);
     ref.invalidate(householdProvider);
     ref.invalidate(petsProvider);
+    ref.invalidate(petsByHouseholdProvider);
+    ref.invalidate(membershipsProvider);
+    ref.invalidate(activeHouseholdIdProvider);
     await _loadData();
   }
 
   int _countForDay(DateTime day) {
     return _completionCounts[_normalize(day)] ?? 0;
+  }
+
+  int _totalForDay(DateTime day) {
+    return _totalTasksByDay[_normalize(day)] ?? 0;
+  }
+
+  Future<void> _selectHousehold(String householdId) async {
+    if (_activeHouseholdId == householdId) return;
+    await ref.read(authServiceProvider).setActiveHousehold(householdId);
+    ref.invalidate(profileProvider);
+    ref.invalidate(activeHouseholdIdProvider);
+    ref.invalidate(householdProvider);
+    ref.invalidate(petsProvider);
+    ref.invalidate(petsByHouseholdProvider);
+    await _loadData();
   }
 
   Widget _dayCellBuilder(BuildContext context, DateTime day, DateTime focusedDay) {
@@ -143,7 +181,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     return _DayCell(
       day: day.day,
       completed: count,
-      total: _taskCount,
+      total: _totalForDay(day),
       isToday: isToday,
       isOutside: isOutside,
     );
@@ -151,146 +189,149 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final profileAsync = ref.watch(profileProvider);
-    final petsAsync = ref.watch(petsProvider);
+    final pets = _activeHouseholdId == null
+        ? const <Pet>[]
+        : (_petsByHouseholdId[_activeHouseholdId!] ?? const <Pet>[]);
+    final pet = _petForId(pets, _selectedPetId);
+    final theme = speciesTheme(pet?.species ?? PetSpecies.dog);
 
-    return profileAsync.when(
-      loading: () => const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+    return Theme(
+      data: Theme.of(context).copyWith(
+        scaffoldBackgroundColor: theme.background,
+        appBarTheme: AppBarTheme(
+          backgroundColor: theme.header,
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
+        cardTheme: CardThemeData(color: theme.card),
       ),
-      error: (e, _) => Scaffold(body: Center(child: Text('Error: $e'))),
-      data: (profile) {
-        final pets = petsAsync.valueOrNull ?? const [];
-        final pet = _petForId(pets, _selectedPetId);
-        final theme = speciesTheme(pet?.species ?? PetSpecies.dog);
-
-        return Theme(
-          data: Theme.of(context).copyWith(
-            scaffoldBackgroundColor: theme.background,
-            appBarTheme: AppBarTheme(
-              backgroundColor: theme.header,
-              foregroundColor: Colors.white,
-              elevation: 0,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Logo(variant: LogoVariant.header),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.person_outline),
+              onPressed: _openSettings,
+              tooltip: 'Profile & household',
             ),
-            cardTheme: CardThemeData(color: theme.card),
-          ),
-          child: Scaffold(
-            appBar: AppBar(
-              title: const Logo(variant: LogoVariant.header),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.person_outline),
-                  onPressed: _openSettings,
-                  tooltip: 'Profile & household',
+          ],
+        ),
+        body: RefreshIndicator(
+          onRefresh: _loadData,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              const DemoBanner(),
+              if (_memberships.isNotEmpty) ...[
+                HouseholdSelector(
+                  memberships: _memberships,
+                  selectedHouseholdId: _activeHouseholdId,
+                  petsByHouseholdId: _petsByHouseholdId,
+                  onSelect: _selectHousehold,
                 ),
+                const SizedBox(height: 16),
               ],
-            ),
-            body: RefreshIndicator(
-              onRefresh: _loadData,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  if (pets.isNotEmpty) ...[
-                    _PetSelector(
-                      pets: pets,
-                      selectedPetId: pet?.id,
-                      plansByPetId: _plansByPetId,
-                      theme: theme,
-                      onSelect: (petId) async {
-                        await writeSelectedPetId(petId);
-                        setState(() => _selectedPetId = petId);
-                        await _loadData();
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        children: [
-                          if (pets.isEmpty)
-                            Padding(
-                              padding: const EdgeInsets.all(24),
-                              child: Text(
-                                'Add your first pet in Settings to unlock age-based dog and cat schedules.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: theme.textSecondary,
-                                  height: 1.5,
-                                ),
-                              ),
-                            )
-                          else if (_loading)
-                            const Padding(
-                              padding: EdgeInsets.all(24),
-                              child: CircularProgressIndicator(),
-                            )
-                          else
-                            TableCalendar<void>(
-                              firstDay: DateTime.utc(2025, 1, 1),
-                              lastDay: DateTime.utc(2030, 12, 31),
-                              focusedDay: _focusedDay,
-                              selectedDayPredicate: (_) => false,
-                              calendarFormat: CalendarFormat.month,
-                              startingDayOfWeek: StartingDayOfWeek.sunday,
-                              rowHeight: 68,
-                              daysOfWeekHeight: 32,
-                              onDaySelected: (selected, focused) {
-                                if (pet == null) return;
-                                setState(() => _focusedDay = focused);
-                                _openDay(selected, pet);
-                              },
-                              onPageChanged: (focused) {
-                                setState(() => _focusedDay = focused);
-                                _loadData();
-                              },
-                              calendarStyle: CalendarStyle(
-                                cellMargin: const EdgeInsets.all(6),
-                                outsideDaysVisible: true,
-                                defaultTextStyle: const TextStyle(fontSize: 0),
-                                weekendTextStyle: const TextStyle(fontSize: 0),
-                                todayTextStyle: const TextStyle(fontSize: 0),
-                                selectedTextStyle: const TextStyle(fontSize: 0),
-                                todayDecoration: const BoxDecoration(),
-                                selectedDecoration: const BoxDecoration(),
-                              ),
-                              headerStyle: HeaderStyle(
-                                titleCentered: true,
-                                titleTextStyle: GoogleFonts.nunito(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 16,
-                                  color: theme.textPrimary,
-                                ),
-                                formatButtonVisible: false,
-                              ),
-                              calendarBuilders: CalendarBuilders(
-                                defaultBuilder: _dayCellBuilder,
-                                todayBuilder: _dayCellBuilder,
-                                selectedBuilder: _dayCellBuilder,
-                                outsideBuilder: _dayCellBuilder,
-                              ),
+              if (pets.isNotEmpty) ...[
+                _PetSelector(
+                  pets: pets,
+                  selectedPetId: pet?.id,
+                  plansByPetId: _plansByPetId,
+                  theme: theme,
+                  onSelect: (petId) async {
+                    final householdId = _activeHouseholdId;
+                    if (householdId == null) return;
+                    await writeSelectedPetId(
+                      householdId: householdId,
+                      petId: petId,
+                    );
+                    setState(() => _selectedPetId = petId);
+                    await _loadData();
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    children: [
+                      if (pets.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            'Add your first pet in Settings to unlock age-based dog and cat schedules.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: theme.textSecondary, height: 1.5),
+                          ),
+                        )
+                      else if (_loading)
+                        const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: CircularProgressIndicator(),
+                        )
+                      else
+                        TableCalendar<void>(
+                          firstDay: DateTime.utc(2025, 1, 1),
+                          lastDay: DateTime.utc(2030, 12, 31),
+                          focusedDay: _focusedDay,
+                          selectedDayPredicate: (_) => false,
+                          calendarFormat: CalendarFormat.month,
+                          startingDayOfWeek: StartingDayOfWeek.sunday,
+                          rowHeight: 68,
+                          daysOfWeekHeight: 32,
+                          onDaySelected: (selected, focused) {
+                            if (pet == null) return;
+                            setState(() => _focusedDay = focused);
+                            _openDay(selected, pet);
+                          },
+                          onPageChanged: (focused) {
+                            setState(() => _focusedDay = focused);
+                            _loadData();
+                          },
+                          calendarStyle: const CalendarStyle(
+                            cellMargin: EdgeInsets.all(6),
+                            outsideDaysVisible: true,
+                            defaultTextStyle: TextStyle(fontSize: 0),
+                            weekendTextStyle: TextStyle(fontSize: 0),
+                            todayTextStyle: TextStyle(fontSize: 0),
+                            selectedTextStyle: TextStyle(fontSize: 0),
+                            todayDecoration: BoxDecoration(),
+                            selectedDecoration: BoxDecoration(),
+                          ),
+                          headerStyle: HeaderStyle(
+                            titleCentered: true,
+                            titleTextStyle: GoogleFonts.nunito(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                              color: theme.textPrimary,
                             ),
-                          if (pets.isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              'Tap a day to view and check off tasks',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: theme.textSecondary.withValues(alpha: 0.8),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
+                            formatButtonVisible: false,
+                          ),
+                          calendarBuilders: CalendarBuilders(
+                            defaultBuilder: _dayCellBuilder,
+                            todayBuilder: _dayCellBuilder,
+                            selectedBuilder: _dayCellBuilder,
+                            outsideBuilder: _dayCellBuilder,
+                          ),
+                        ),
+                      if (pets.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          'Tap a day to view and check off tasks',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.textSecondary.withValues(alpha: 0.8),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

@@ -61,6 +61,11 @@ String formatPetSummaryWithPlan(Pet pet, SchedulePlan? plan) {
   return '$summary · ${plan.emoji} ${formatPlanPhaseLabel(plan)}';
 }
 
+String? formatPetNamesLine(List<Pet> pets) {
+  if (pets.isEmpty) return null;
+  return pets.map((pet) => '${pet.species.emoji} ${pet.name}').join(' · ');
+}
+
 String? formatPetsLine(List<Pet> pets) {
   if (pets.isEmpty) return null;
   return pets.map(formatPetSummary).join(' · ');

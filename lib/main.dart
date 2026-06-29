@@ -13,7 +13,7 @@ Future<void> main() async {
   await Firebase.initializeApp();
   await Analytics.init();
 
-  if (Env.isConfigured) {
+  if (!Env.roadmapDemo && Env.isConfigured) {
     await Supabase.initialize(
       url: Env.supabaseUrl,
       anonKey: Env.supabaseAnonKey, // ignore: deprecated_member_use

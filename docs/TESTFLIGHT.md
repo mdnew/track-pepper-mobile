@@ -59,7 +59,7 @@ The IPA is written to `build/ios/ipa/`.
 ### Upload via command line
 
 ```bash
-xcrun altool --upload-app -f build/ios/ipa/pepper_track.ipa \
+xcrun altool --upload-app -f build/ios/ipa/track_pepper.ipa \
   -t ios -u YOUR_APPLE_ID -p YOUR_APP_SPECIFIC_PASSWORD
 ```
 

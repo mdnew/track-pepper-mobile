@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/household.dart';
+import '../../models/household_member.dart';
+import '../../models/household_membership.dart';
+import '../../models/household_role.dart';
 import '../../models/pet.dart';
-import '../../models/profile.dart';
 import '../../providers/providers.dart';
-import '../../theme/app_theme.dart';
-import '../../config/recommendations.dart';
+import '../../screens/schedule/schedule_editor_screen.dart';
 import '../../utils/analytics.dart';
 import '../../utils/pet_age.dart';
-import '../../widgets/recommendations_section.dart';
+import '../../widgets/household_selector.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -23,30 +22,23 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _nameController = TextEditingController();
   final _householdNameController = TextEditingController();
-  final _passwordFormKey = GlobalKey<FormState>();
-  final _newPasswordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
+  final _guestEmailController = TextEditingController();
+  final _guestFromController = TextEditingController();
+  final _guestUntilController = TextEditingController();
+  final Set<int> _guestDays = {};
+  final _petNameController = TextEditingController();
+  DateTime? _petDob;
+  PetSpecies _petSpecies = PetSpecies.dog;
   Household? _household;
-  List<Pet> _pets = [];
-  List<Profile> _members = [];
+  List<Pet> _pets = const [];
+  List<HouseholdMember> _members = const [];
+  List<HouseholdMember> _guests = const [];
+  List<HouseholdMembership> _memberships = const [];
+  Map<String, List<Pet>> _petsByHouseholdId = const {};
+  String? _activeHouseholdId;
+  HouseholdRole? _currentRole;
   bool _loading = true;
-  bool _savingName = false;
-  bool _savingHouseholdName = false;
-  bool _savingPassword = false;
-  bool _editingName = false;
-  bool _editingHouseholdName = false;
-  bool _editingPassword = false;
-  bool _obscureNewPassword = true;
-  bool _obscureConfirmPassword = true;
-  String? _error;
-  final _newPetNameController = TextEditingController();
-  DateTime? _newPetDateOfBirth;
-  PetSpecies _newPetSpecies = PetSpecies.dog;
-  bool _addingPet = false;
-  bool _showAddPetForm = false;
-  String? _editingPetId;
-  String? _savingPetId;
-  String? _deletingPetId;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -59,188 +51,203 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void dispose() {
     _nameController.dispose();
     _householdNameController.dispose();
-    _newPetNameController.dispose();
-    _newPasswordController.dispose();
-    _confirmPasswordController.dispose();
+    _guestEmailController.dispose();
+    _guestFromController.dispose();
+    _guestUntilController.dispose();
+    _petNameController.dispose();
     super.dispose();
   }
 
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final auth = ref.read(authServiceProvider);
-      final profile = await auth.getProfile();
-      final household = await auth.getHousehold();
-      final members = await auth.getHouseholdMembers();
-      final pets = household == null
-          ? <Pet>[]
-          : await ref.read(petsServiceProvider).getPets();
-
-      if (mounted) {
-        _nameController.text = profile?.displayName ?? '';
-        _householdNameController.text = household?.name ?? '';
-        setState(() {
-          _household = household;
-          _members = members;
-          _pets = pets;
-          _loading = false;
-          _editingName = false;
-          _editingHouseholdName = false;
-          _editingPassword = false;
-          _editingPetId = null;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _loading = false;
-        });
-      }
+    setState(() => _loading = true);
+    final auth = ref.read(authServiceProvider);
+    final profile = await auth.getProfile();
+    final memberships = await auth.getMemberships();
+    final activeHouseholdId = await ref.read(activeHouseholdIdProvider.future);
+    if (activeHouseholdId == null) {
+      setState(() => _loading = false);
+      return;
     }
+    final household = await auth.getHousehold(activeHouseholdId);
+    final role = await auth.getCurrentRole(activeHouseholdId);
+    final members = role == HouseholdRole.guest
+        ? <HouseholdMember>[]
+        : await auth.getHouseholdMembers(activeHouseholdId);
+    final guests = role == HouseholdRole.owner ||
+            role == HouseholdRole.admin ||
+            role == HouseholdRole.guest
+        ? await auth.getGuestMembers(activeHouseholdId)
+        : <HouseholdMember>[];
+    final petsByHousehold = await ref.read(petsByHouseholdProvider.future);
+    if (!mounted) return;
+    _nameController.text = profile?.displayName ?? '';
+    _householdNameController.text = household?.name ?? '';
+    setState(() {
+      _household = household;
+      _members = members;
+      _guests = guests;
+      _memberships = memberships;
+      _petsByHouseholdId = petsByHousehold;
+      _activeHouseholdId = activeHouseholdId;
+      _currentRole = role;
+      _pets = petsByHousehold[activeHouseholdId] ?? const [];
+      _loading = false;
+    });
   }
 
-  Future<void> _saveDisplayName() async {
+  bool get _canManage => _currentRole == HouseholdRole.owner || _currentRole == HouseholdRole.admin;
+  bool get _isGuest => _currentRole == HouseholdRole.guest;
+
+  Future<void> _saveName() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
-
-    setState(() => _savingName = true);
+    setState(() => _saving = true);
     try {
       await ref.read(authServiceProvider).updateDisplayName(name);
       ref.invalidate(profileProvider);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Name updated')),
-        );
-        setState(() => _editingName = false);
-        await _load();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save name: $e')),
-        );
-      }
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Display name updated')));
     } finally {
-      if (mounted) setState(() => _savingName = false);
+      if (mounted) setState(() => _saving = false);
     }
   }
 
   Future<void> _saveHouseholdName() async {
+    if (_activeHouseholdId == null) return;
     final name = _householdNameController.text.trim();
     if (name.isEmpty) return;
-
-    setState(() => _savingHouseholdName = true);
+    setState(() => _saving = true);
     try {
-      await ref.read(authServiceProvider).updateHouseholdName(name);
+      await ref.read(authServiceProvider).updateHouseholdName(_activeHouseholdId!, name);
       ref.invalidate(householdProvider);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Household name updated')),
-        );
-        setState(() => _editingHouseholdName = false);
-        await _load();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save household name: $e')),
-        );
-      }
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Household name updated')));
     } finally {
-      if (mounted) setState(() => _savingHouseholdName = false);
+      if (mounted) setState(() => _saving = false);
     }
   }
 
-  Future<void> _changePassword() async {
-    if (!_passwordFormKey.currentState!.validate()) return;
-
-    setState(() => _savingPassword = true);
-    try {
-      await ref
-          .read(authServiceProvider)
-          .updatePassword(_newPasswordController.text);
-      _newPasswordController.clear();
-      _confirmPasswordController.clear();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Password updated')),
-        );
-        setState(() => _editingPassword = false);
-        TextInput.finishAutofillContext(shouldSave: true);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not update password: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _savingPassword = false);
-    }
+  Future<void> _switchHousehold(String householdId) async {
+    await ref.read(authServiceProvider).setActiveHousehold(householdId);
+    ref.invalidate(activeHouseholdIdProvider);
+    ref.invalidate(householdProvider);
+    ref.invalidate(petsProvider);
+    ref.invalidate(petsByHouseholdProvider);
+    await _load();
   }
 
-  Future<void> _addPet() async {
-    final name = _newPetNameController.text.trim();
-    final dateOfBirth = _newPetDateOfBirth;
-    if (name.isEmpty || dateOfBirth == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a name and date of birth.')),
-      );
-      return;
-    }
-
-    setState(() => _addingPet = true);
-    try {
-      await ref.read(petsServiceProvider).createPet(
-            name: name,
-            dateOfBirth: dateOfBirth,
-            species: _newPetSpecies,
-          );
-      ref.invalidate(petsProvider);
-      _newPetNameController.clear();
-      _newPetDateOfBirth = null;
-      _newPetSpecies = PetSpecies.dog;
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Pet added')),
-        );
-        setState(() => _showAddPetForm = false);
-        await _load();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not add pet: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _addingPet = false);
-    }
-  }
-
-  Future<void> _pickNewPetDateOfBirth() async {
+  Future<void> _pickPetDob() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: _newPetDateOfBirth ?? DateTime.now(),
+      initialDate: _petDob ?? DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime.now(),
     );
-    if (picked != null) {
-      setState(() => _newPetDateOfBirth = picked);
-    }
+    if (picked != null) setState(() => _petDob = picked);
   }
 
-  void _copyInviteCode() {
-    final code = _household?.inviteCode;
-    if (code == null) return;
-    Clipboard.setData(ClipboardData(text: code));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Invite code copied!')),
+  Future<void> _addPet() async {
+    if (_activeHouseholdId == null || _petDob == null || _petNameController.text.trim().isEmpty) {
+      return;
+    }
+    await ref.read(petsServiceProvider).createPet(
+          householdId: _activeHouseholdId,
+          name: _petNameController.text.trim(),
+          dateOfBirth: _petDob!,
+          species: _petSpecies,
+        );
+    _petNameController.clear();
+    _petDob = null;
+    _petSpecies = PetSpecies.dog;
+    ref.invalidate(petsProvider);
+    ref.invalidate(petsByHouseholdProvider);
+    await _load();
+  }
+
+  Future<void> _removeMember(HouseholdMember member) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(member.role == HouseholdRole.guest ? 'Remove guest?' : 'Remove member?'),
+        content: Text(
+          member.role == HouseholdRole.guest
+              ? '${member.displayName} will lose guest access to this household.'
+              : '${member.displayName} will be removed from this household.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Remove')),
+        ],
+      ),
     );
+    if (confirmed != true || _activeHouseholdId == null) return;
+    await ref.read(authServiceProvider).removeMember(_activeHouseholdId!, member.userId);
+    await _load();
+  }
+
+  bool _canRemove(HouseholdRole targetRole) {
+    if (!_canManage) return false;
+    if (_currentRole == HouseholdRole.admin &&
+        (targetRole == HouseholdRole.owner || targetRole == HouseholdRole.admin)) {
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _leaveHousehold() async {
+    if (_activeHouseholdId == null) return;
+    if (_currentRole == HouseholdRole.owner) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Owners can't leave a household they own.")),
+      );
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Leave household?'),
+        content: const Text(
+          'You will lose access to this household\'s pets and schedules.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Leave household')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ref.read(authServiceProvider).leaveHousehold(_activeHouseholdId!);
+    ref.invalidate(profileProvider);
+    ref.invalidate(activeHouseholdIdProvider);
+    await _load();
+  }
+
+  Future<void> _addGuest() async {
+    if (_activeHouseholdId == null) return;
+    final email = _guestEmailController.text.trim();
+    final from = _guestFromController.text.trim();
+    final until = _guestUntilController.text.trim();
+    if (email.isEmpty || from.isEmpty || until.isEmpty) return;
+    await ref.read(authServiceProvider).addGuestByEmail(
+          _activeHouseholdId!,
+          email,
+          from,
+          until,
+          _guestDays.isEmpty
+              ? null
+              : (() {
+                  final days = _guestDays.toList();
+                  days.sort();
+                  return days;
+                })(),
+        );
+    _guestEmailController.clear();
+    _guestFromController.clear();
+    _guestUntilController.clear();
+    _guestDays.clear();
+    await _load();
   }
 
   Future<void> _signOut() async {
@@ -250,7 +257,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final email = ref.read(authServiceProvider).currentUser?.email;
+    final email = ref.read(authServiceProvider).currentUserEmail;
+    final myUserId = ref.read(authServiceProvider).currentUserId;
+    HouseholdMember? myGuest;
+    for (final guest in _guests) {
+      if (guest.userId == myUserId) {
+        myGuest = guest;
+        break;
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -263,895 +278,223 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  if (_error != null) ...[
-                    _ErrorBanner(message: _error!),
-                    const SizedBox(height: 16),
-                  ],
                   _SectionCard(
                     title: 'Profile',
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _EditableTextSetting(
-                          label: 'Display name',
-                          value: _nameController.text,
-                          editing: _editingName,
-                          controller: _nameController,
-                          saving: _savingName,
-                          onEdit: () => setState(() => _editingName = true),
-                          onCancel: () {
-                            ref
-                                .read(authServiceProvider)
-                                .getProfile()
-                                .then((profile) {
-                              if (!mounted) return;
-                              _nameController.text = profile?.displayName ?? '';
-                              setState(() => _editingName = false);
-                            });
-                          },
-                          onSave: _saveDisplayName,
-                        ),
+                        TextField(controller: _nameController, decoration: const InputDecoration(labelText: 'Display name')),
+                        const SizedBox(height: 8),
+                        ElevatedButton(onPressed: _saving ? null : _saveName, child: const Text('Save display name')),
                         if (email != null) ...[
-                          const SizedBox(height: 16),
-                          Text(
-                            'Email',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary
-                                  .withValues(alpha: 0.8),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(email, style: const TextStyle(fontSize: 15)),
+                          const SizedBox(height: 8),
+                          Text('Email: $email'),
                         ],
-                        const SizedBox(height: 16),
-                        _EditablePasswordSetting(
-                          editing: _editingPassword,
-                          formKey: _passwordFormKey,
-                          newPasswordController: _newPasswordController,
-                          confirmPasswordController: _confirmPasswordController,
-                          obscureNewPassword: _obscureNewPassword,
-                          obscureConfirmPassword: _obscureConfirmPassword,
-                          saving: _savingPassword,
-                          onEdit: () => setState(() => _editingPassword = true),
-                          onCancel: () {
-                            _newPasswordController.clear();
-                            _confirmPasswordController.clear();
-                            setState(() => _editingPassword = false);
-                          },
-                          onToggleNewPassword: () => setState(
-                            () => _obscureNewPassword = !_obscureNewPassword,
-                          ),
-                          onToggleConfirmPassword: () => setState(
-                            () => _obscureConfirmPassword =
-                                !_obscureConfirmPassword,
-                          ),
-                          onSave: _changePassword,
-                        ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 16),
-                  if (_household != null) ...[
+                  if (_household != null)
                     _SectionCard(
                       title: 'Household',
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _EditableTextSetting(
-                            label: 'Household name',
-                            value: _householdNameController.text,
-                            editing: _editingHouseholdName,
-                            controller: _householdNameController,
-                            saving: _savingHouseholdName,
-                            onEdit: () =>
-                                setState(() => _editingHouseholdName = true),
-                            onCancel: () {
-                              _householdNameController.text =
-                                  _household?.name ?? '';
-                              setState(() => _editingHouseholdName = false);
-                            },
-                            onSave: _saveHouseholdName,
+                          HouseholdSelector(
+                            memberships: _memberships,
+                            selectedHouseholdId: _activeHouseholdId,
+                            petsByHouseholdId: _petsByHouseholdId,
+                            onSelect: _switchHousehold,
                           ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Invite code',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary
-                                  .withValues(alpha: 0.8),
+                          const SizedBox(height: 12),
+                          if (_canManage) ...[
+                            TextField(
+                              controller: _householdNameController,
+                              decoration: const InputDecoration(labelText: 'Household name'),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.feedBg,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.feed),
-                            ),
-                            child: Text(
-                              _household!.inviteCode,
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.nunito(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 2,
+                            const SizedBox(height: 8),
+                            ElevatedButton(onPressed: _saving ? null : _saveHouseholdName, child: const Text('Save household name')),
+                            const SizedBox(height: 8),
+                            Text('Invite code: ${_household!.inviteCode}'),
+                          ] else if (!_isGuest) ...[
+                            Text('Household name: ${_household!.name}'),
+                          ],
+                          if (_isGuest) ...[
+                            const SizedBox(height: 8),
+                            const Text('Your access'),
+                            Text(myGuest == null ? 'Check-off access for this household' : _formatGuestAccess(myGuest)),
+                          ],
+                          if (!_isGuest) ...[
+                            const SizedBox(height: 12),
+                            Text('Family members (${_members.length})'),
+                            const SizedBox(height: 8),
+                            for (final member in _members)
+                              ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: CircleAvatar(child: Text(member.displayName.isEmpty ? '?' : member.displayName[0].toUpperCase())),
+                                title: Text(member.displayName),
+                                subtitle: Text(member.role.label),
+                                trailing: member.userId != myUserId && _canRemove(member.role)
+                                    ? TextButton(
+                                        onPressed: () => _removeMember(member),
+                                        child: const Text('Remove'),
+                                      )
+                                    : member.userId == myUserId
+                                        ? const Text('You')
+                                        : null,
                               ),
+                          ],
+                          if (_canManage) ...[
+                            const SizedBox(height: 12),
+                            Text('Guests (${_guests.length})'),
+                            const SizedBox(height: 8),
+                            for (final guest in _guests)
+                              ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(guest.displayName),
+                                subtitle: Text(_formatGuestAccess(guest)),
+                                trailing: TextButton(
+                                  onPressed: () => _removeMember(guest),
+                                  child: const Text('Remove'),
+                                ),
+                              ),
+                            TextField(
+                              controller: _guestEmailController,
+                              decoration: const InputDecoration(labelText: 'Guest email'),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          OutlinedButton.icon(
-                            onPressed: _copyInviteCode,
-                            icon: const Icon(Icons.copy),
-                            label: const Text('Copy invite code'),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Share this code so family members can sign up and join your household.',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              height: 1.5,
-                              color: AppColors.textSecondary
-                                  .withValues(alpha: 0.9),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _guestFromController,
+                              decoration: const InputDecoration(labelText: 'From (YYYY-MM-DD)'),
                             ),
-                          ),
-                          const SizedBox(height: 24),
-                          const Divider(height: 1),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Family members (${_members.length})',
-                            style: GoogleFonts.nunito(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _guestUntilController,
+                              decoration: const InputDecoration(labelText: 'Until (YYYY-MM-DD)'),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          ..._members.map((member) {
-                            final isYou = member.id ==
-                                ref.read(authServiceProvider).currentUser?.id;
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    backgroundColor: AppColors.sleepBg,
-                                    child: Text(
-                                      member.displayName.isNotEmpty
-                                          ? member.displayName[0].toUpperCase()
-                                          : '?',
-                                      style: const TextStyle(
-                                        color: AppColors.sleep,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              children: [
+                                for (final day in const [
+                                  (0, 'Sun'),
+                                  (1, 'Mon'),
+                                  (2, 'Tue'),
+                                  (3, 'Wed'),
+                                  (4, 'Thu'),
+                                  (5, 'Fri'),
+                                  (6, 'Sat'),
+                                ])
+                                  FilterChip(
+                                    label: Text(day.$2),
+                                    selected: _guestDays.contains(day.$1),
+                                    onSelected: (selected) {
+                                      setState(() {
+                                        if (selected) {
+                                          _guestDays.add(day.$1);
+                                        } else {
+                                          _guestDays.remove(day.$1);
+                                        }
+                                      });
+                                    },
                                   ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          member.displayName,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 15,
-                                          ),
-                                        ),
-                                        if (isYou)
-                                          const Text(
-                                            'You',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: AppColors.potty,
-                                              fontWeight: FontWeight.w600,
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            ElevatedButton(
+                              onPressed: _addGuest,
+                              child: const Text('Add guest'),
+                            ),
+                          ],
+                          if (!_isGuest) ...[
+                            const SizedBox(height: 12),
+                            Text('Pets (${_pets.length})'),
+                            const SizedBox(height: 8),
+                            for (final pet in _pets)
+                              ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(formatPetSummary(pet)),
+                                subtitle: Text('Born ${formatDateOfBirth(pet.dateOfBirth)}'),
+                                trailing: Wrap(
+                                  spacing: 8,
+                                  children: [
+                                    TextButton(
+                                      onPressed: () async {
+                                        if (_activeHouseholdId == null) return;
+                                        await Navigator.of(context).push(
+                                          MaterialPageRoute<void>(
+                                            builder: (_) => ScheduleEditorScreen(
+                                              pet: pet,
+                                              householdId: _activeHouseholdId!,
                                             ),
                                           ),
-                                      ],
+                                        );
+                                        await _load();
+                                      },
+                                      child: const Text('Schedule'),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }),
-                          const SizedBox(height: 24),
-                          const Divider(height: 1),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Pets (${_pets.length})',
-                            style: GoogleFonts.nunito(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Add each dog or cat in your household. Ages update automatically from their date of birth.',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              height: 1.5,
-                              color: AppColors.textSecondary
-                                  .withValues(alpha: 0.9),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          if (_pets.isNotEmpty)
-                            ..._pets.map(
-                              (pet) => Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: _PetEditorCard(
-                                  pet: pet,
-                                  editing: _editingPetId == pet.id,
-                                  saving: _savingPetId == pet.id,
-                                  deleting: _deletingPetId == pet.id,
-                                  onEdit: () =>
-                                      setState(() => _editingPetId = pet.id),
-                                  onCancel: () =>
-                                      setState(() => _editingPetId = null),
-                                  onSave: (name, dateOfBirth, species) async {
-                                    setState(() => _savingPetId = pet.id);
-                                    try {
-                                      await ref
-                                          .read(petsServiceProvider)
-                                          .updatePet(
-                                            id: pet.id,
-                                            name: name,
-                                            dateOfBirth: dateOfBirth,
-                                            species: species,
-                                          );
-                                      ref.invalidate(petsProvider);
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                              content: Text('Pet updated')),
-                                        );
-                                        setState(() => _editingPetId = null);
+                                    TextButton(
+                                      onPressed: () async {
+                                        await ref.read(petsServiceProvider).deletePet(pet.id);
                                         await _load();
-                                      }
-                                    } catch (e) {
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                              content: Text(
-                                                  'Could not save pet: $e')),
-                                        );
-                                      }
-                                    } finally {
-                                      if (mounted)
-                                        setState(() => _savingPetId = null);
-                                    }
-                                  },
-                                  onDelete: () async {
-                                    final confirmed = await showDialog<bool>(
-                                      context: context,
-                                      builder: (context) => AlertDialog(
-                                        title: const Text('Remove pet?'),
-                                        content: Text(
-                                          'Remove ${pet.name} from your household?',
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () =>
-                                                Navigator.pop(context, false),
-                                            child: const Text('Cancel'),
-                                          ),
-                                          TextButton(
-                                            onPressed: () =>
-                                                Navigator.pop(context, true),
-                                            child: const Text('Remove'),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                    if (confirmed != true || !mounted) return;
-
-                                    setState(() => _deletingPetId = pet.id);
-                                    try {
-                                      await ref
-                                          .read(petsServiceProvider)
-                                          .deletePet(pet.id);
-                                      ref.invalidate(petsProvider);
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                              content: Text('Pet removed')),
-                                        );
-                                        await _load();
-                                      }
-                                    } catch (e) {
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                              content: Text(
-                                                  'Could not remove pet: $e')),
-                                        );
-                                      }
-                                    } finally {
-                                      if (mounted)
-                                        setState(() => _deletingPetId = null);
-                                    }
-                                  },
+                                      },
+                                      child: const Text('Remove'),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ),
-                          if (_showAddPetForm) ...[
-                            if (_pets.isNotEmpty) const SizedBox(height: 8),
-                            Text(
-                              'Add a pet',
-                              style: GoogleFonts.nunito(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
                             SegmentedButton<PetSpecies>(
                               segments: const [
-                                ButtonSegment(
-                                  value: PetSpecies.dog,
-                                  label: Text('🐶 Dog'),
-                                ),
-                                ButtonSegment(
-                                  value: PetSpecies.cat,
-                                  label: Text('🐱 Cat'),
-                                ),
+                                ButtonSegment(value: PetSpecies.dog, label: Text('🐶 Dog')),
+                                ButtonSegment(value: PetSpecies.cat, label: Text('🐱 Cat')),
                               ],
-                              selected: {_newPetSpecies},
+                              selected: {_petSpecies},
                               onSelectionChanged: (selection) {
-                                setState(
-                                    () => _newPetSpecies = selection.first);
+                                setState(() => _petSpecies = selection.first);
                               },
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 8),
                             TextField(
-                              controller: _newPetNameController,
-                              textCapitalization: TextCapitalization.words,
-                              autofocus: true,
-                              decoration: const InputDecoration(
-                                labelText: 'Name',
-                                hintText: 'Pepper',
-                              ),
+                              controller: _petNameController,
+                              decoration: const InputDecoration(labelText: 'New pet name'),
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 8),
                             OutlinedButton(
-                              onPressed: _pickNewPetDateOfBirth,
+                              onPressed: _pickPetDob,
                               child: Text(
-                                _newPetDateOfBirth == null
+                                _petDob == null
                                     ? 'Choose date of birth'
-                                    : 'Born ${formatDateOfBirth(_newPetDateOfBirth!)}',
+                                    : 'Born ${formatDateOfBirth(_petDob!)}',
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: OutlinedButton(
-                                    onPressed: _addingPet
-                                        ? null
-                                        : () {
-                                            _newPetNameController.clear();
-                                            _newPetDateOfBirth = null;
-                                            _newPetSpecies = PetSpecies.dog;
-                                            setState(
-                                                () => _showAddPetForm = false);
-                                          },
-                                    child: const Text('Cancel'),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: ElevatedButton(
-                                    onPressed: _addingPet ? null : _addPet,
-                                    child: Text(
-                                        _addingPet ? 'Adding…' : 'Add pet'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ] else
-                            OutlinedButton(
-                              onPressed: () =>
-                                  setState(() => _showAddPetForm = true),
-                              child: const Text('Add pet'),
+                            const SizedBox(height: 8),
+                            ElevatedButton(onPressed: _addPet, child: const Text('Add pet')),
+                          ],
+                          if (_currentRole == HouseholdRole.owner)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 8),
+                              child: Text("As the owner, you can't leave this household."),
+                            )
+                          else if (_currentRole != HouseholdRole.guest)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: OutlinedButton(
+                                onPressed: _leaveHousehold,
+                                child: const Text('Leave household'),
+                              ),
                             ),
                         ],
                       ),
                     ),
-                  ],
-                  if (recommendationsForPetSpeciesList(
-                    _pets.map((pet) => pet.species),
-                  ).isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    _SectionCard(
-                      title: 'Our recommendations',
-                      child: RecommendationsSection(
-                        items: recommendationsForPetSpeciesList(
-                          _pets.map((pet) => pet.species),
-                        ),
-                        title: '',
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                   OutlinedButton.icon(
                     onPressed: _signOut,
-                    icon: const Icon(Icons.logout, color: AppColors.train),
-                    label: const Text(
-                      'Sign out',
-                      style: TextStyle(color: AppColors.train),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.train),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
+                    icon: const Icon(Icons.logout),
+                    label: const Text('Sign out'),
                   ),
                 ],
               ),
             ),
-    );
-  }
-}
-
-class _PetEditorCard extends StatefulWidget {
-  const _PetEditorCard({
-    required this.pet,
-    required this.editing,
-    required this.saving,
-    required this.deleting,
-    required this.onEdit,
-    required this.onCancel,
-    required this.onSave,
-    required this.onDelete,
-  });
-
-  final Pet pet;
-  final bool editing;
-  final bool saving;
-  final bool deleting;
-  final VoidCallback onEdit;
-  final VoidCallback onCancel;
-  final Future<void> Function(
-    String name,
-    DateTime dateOfBirth,
-    PetSpecies species,
-  ) onSave;
-  final Future<void> Function() onDelete;
-
-  @override
-  State<_PetEditorCard> createState() => _PetEditorCardState();
-}
-
-class _PetEditorCardState extends State<_PetEditorCard> {
-  late final TextEditingController _nameController;
-  late DateTime _dateOfBirth;
-  late PetSpecies _species;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController(text: widget.pet.name);
-    _dateOfBirth = widget.pet.dateOfBirth;
-    _species = widget.pet.species;
-  }
-
-  @override
-  void didUpdateWidget(covariant _PetEditorCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!widget.editing) {
-      _resetFromPet();
-    }
-  }
-
-  void _resetFromPet() {
-    _nameController.text = widget.pet.name;
-    _dateOfBirth = widget.pet.dateOfBirth;
-    _species = widget.pet.species;
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickDateOfBirth() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _dateOfBirth,
-      firstDate: DateTime(2000),
-      lastDate: DateTime.now(),
-    );
-    if (picked != null) {
-      setState(() => _dateOfBirth = picked);
-    }
-  }
-
-  void _handleCancel() {
-    setState(() {
-      _nameController.text = widget.pet.name;
-      _dateOfBirth = widget.pet.dateOfBirth;
-      _species = widget.pet.species;
-    });
-    widget.onCancel();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!widget.editing) {
-      return Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.feedBg.withValues(alpha: 0.35),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.feed.withValues(alpha: 0.5)),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    formatPetSummary(widget.pet),
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Born ${formatDateOfBirth(widget.pet.dateOfBirth)}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textSecondary.withValues(alpha: 0.9),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            IconButton(
-              onPressed: widget.onEdit,
-              icon: const Icon(Icons.edit_outlined, size: 20),
-              tooltip: 'Edit ${widget.pet.name}',
-              visualDensity: VisualDensity.compact,
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.feedBg.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.feed.withValues(alpha: 0.5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SegmentedButton<PetSpecies>(
-            segments: const [
-              ButtonSegment(
-                value: PetSpecies.dog,
-                label: Text('🐶 Dog'),
-              ),
-              ButtonSegment(
-                value: PetSpecies.cat,
-                label: Text('🐱 Cat'),
-              ),
-            ],
-            selected: {_species},
-            onSelectionChanged: (selection) {
-              setState(() => _species = selection.first);
-            },
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _nameController,
-            textCapitalization: TextCapitalization.words,
-            autofocus: true,
-            decoration: const InputDecoration(labelText: 'Name'),
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton(
-            onPressed: _pickDateOfBirth,
-            child: Text('Born ${formatDateOfBirth(_dateOfBirth)}'),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            formatPetAge(_dateOfBirth),
-            style: const TextStyle(
-              color: AppColors.potty,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed:
-                      widget.saving || widget.deleting ? null : _handleCancel,
-                  child: const Text('Cancel'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: widget.saving
-                      ? null
-                      : () => widget.onSave(
-                            _nameController.text,
-                            _dateOfBirth,
-                            _species,
-                          ),
-                  child: Text(widget.saving ? 'Saving…' : 'Save'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: widget.deleting ? null : widget.onDelete,
-            child: Text(
-              widget.deleting ? 'Removing…' : 'Remove pet',
-              style: const TextStyle(color: AppColors.train),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EditableTextSetting extends StatelessWidget {
-  const _EditableTextSetting({
-    required this.label,
-    required this.value,
-    required this.editing,
-    required this.controller,
-    required this.saving,
-    required this.onEdit,
-    required this.onCancel,
-    required this.onSave,
-  });
-
-  final String label;
-  final String value;
-  final bool editing;
-  final TextEditingController controller;
-  final bool saving;
-  final VoidCallback onEdit;
-  final VoidCallback onCancel;
-  final Future<void> Function() onSave;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!editing) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary.withValues(alpha: 0.8),
-                  ),
-                ),
-              ),
-              IconButton(
-                onPressed: onEdit,
-                icon: const Icon(Icons.edit_outlined, size: 20),
-                tooltip: 'Edit $label',
-                visualDensity: VisualDensity.compact,
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value.trim().isEmpty ? 'Not set' : value.trim(),
-            style: const TextStyle(fontSize: 15),
-          ),
-        ],
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        TextField(
-          controller: controller,
-          textCapitalization: TextCapitalization.words,
-          autofocus: true,
-          decoration: InputDecoration(labelText: label),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: saving ? null : onCancel,
-                child: const Text('Cancel'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: saving ? null : onSave,
-                child: saving
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text('Save'),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _EditablePasswordSetting extends StatelessWidget {
-  const _EditablePasswordSetting({
-    required this.editing,
-    required this.formKey,
-    required this.newPasswordController,
-    required this.confirmPasswordController,
-    required this.obscureNewPassword,
-    required this.obscureConfirmPassword,
-    required this.saving,
-    required this.onEdit,
-    required this.onCancel,
-    required this.onToggleNewPassword,
-    required this.onToggleConfirmPassword,
-    required this.onSave,
-  });
-
-  final bool editing;
-  final GlobalKey<FormState> formKey;
-  final TextEditingController newPasswordController;
-  final TextEditingController confirmPasswordController;
-  final bool obscureNewPassword;
-  final bool obscureConfirmPassword;
-  final bool saving;
-  final VoidCallback onEdit;
-  final VoidCallback onCancel;
-  final VoidCallback onToggleNewPassword;
-  final VoidCallback onToggleConfirmPassword;
-  final Future<void> Function() onSave;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!editing) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Password',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary.withValues(alpha: 0.8),
-                  ),
-                ),
-              ),
-              IconButton(
-                onPressed: onEdit,
-                icon: const Icon(Icons.edit_outlined, size: 20),
-                tooltip: 'Change password',
-                visualDensity: VisualDensity.compact,
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          const Text('••••••••', style: TextStyle(fontSize: 15)),
-        ],
-      );
-    }
-
-    return AutofillGroup(
-      child: Form(
-        key: formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextFormField(
-              controller: newPasswordController,
-              obscureText: obscureNewPassword,
-              autofocus: true,
-              autofillHints: const [AutofillHints.newPassword],
-              textInputAction: TextInputAction.next,
-              decoration: InputDecoration(
-                labelText: 'New password',
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    obscureNewPassword
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                  ),
-                  onPressed: onToggleNewPassword,
-                ),
-              ),
-              validator: (v) =>
-                  v != null && v.length >= 6 ? null : 'Min 6 characters',
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: confirmPasswordController,
-              obscureText: obscureConfirmPassword,
-              autofillHints: const [AutofillHints.newPassword],
-              textInputAction: TextInputAction.done,
-              decoration: InputDecoration(
-                labelText: 'Confirm new password',
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    obscureConfirmPassword
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                  ),
-                  onPressed: onToggleConfirmPassword,
-                ),
-              ),
-              validator: (v) {
-                if (v == null || v.length < 6) {
-                  return 'Min 6 characters';
-                }
-                if (v != newPasswordController.text) {
-                  return 'Passwords do not match';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: saving ? null : onCancel,
-                    child: const Text('Cancel'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: saving ? null : onSave,
-                    child: saving
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text('Update password'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -1172,12 +515,7 @@ class _SectionCard extends StatelessWidget {
           children: [
             Text(
               title,
-              style: GoogleFonts.nunito(
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textSecondary,
-                letterSpacing: 0.5,
-              ),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 16),
             child,
@@ -1188,24 +526,23 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
-class _ErrorBanner extends StatelessWidget {
-  const _ErrorBanner({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.trainBg,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        message,
-        style: const TextStyle(color: AppColors.train, fontSize: 13),
-      ),
-    );
+String _formatGuestAccess(HouseholdMember member) {
+  final parts = <String>[];
+  if (member.validFrom != null) {
+    parts.add(formatDateOfBirth(member.validFrom!));
   }
+  if (member.validUntil != null) {
+    parts.add(formatDateOfBirth(member.validUntil!));
+  }
+  final range = parts.length == 2
+      ? '${parts[0]} - ${parts[1]}'
+      : parts.length == 1
+          ? 'From ${parts[0]}'
+          : 'Any date';
+  if (member.validDaysOfWeek == null || member.validDaysOfWeek!.isEmpty) {
+    return range;
+  }
+  const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  final days = member.validDaysOfWeek!.map((day) => labels[day]).join(', ');
+  return '$range · $days';
 }

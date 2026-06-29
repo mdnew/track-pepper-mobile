@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/completion.dart';
+import '../../models/household_role.dart';
 import '../../models/pet.dart';
 import '../../models/schedule_plan.dart';
 import '../../models/schedule_task.dart';
@@ -18,10 +19,16 @@ import '../../widgets/schedule_block.dart';
 import '../../widgets/section_divider.dart';
 
 class DayScreen extends ConsumerStatefulWidget {
-  const DayScreen({super.key, required this.date, required this.pet});
+  const DayScreen({
+    super.key,
+    required this.date,
+    required this.pet,
+    required this.householdId,
+  });
 
   final DateTime date;
   final Pet pet;
+  final String householdId;
 
   @override
   ConsumerState<DayScreen> createState() => _DayScreenState();
@@ -48,7 +55,7 @@ class _DayScreenState extends ConsumerState<DayScreen> {
   @override
   void initState() {
     super.initState();
-    writeSelectedPetId(widget.pet.id);
+    writeSelectedPetId(householdId: widget.householdId, petId: widget.pet.id);
     Analytics.trackPageView('/day/${formatDateKey(widget.date)}');
     _load();
   }
@@ -61,9 +68,6 @@ class _DayScreenState extends ConsumerState<DayScreen> {
   }
 
   Future<void> _load() async {
-    final profile = await ref.read(profileProvider.future);
-    if (profile?.householdId == null) return;
-
     setState(() => _loading = true);
     try {
       final scheduleService = ref.read(scheduleServiceProvider);
@@ -74,14 +78,14 @@ class _DayScreenState extends ConsumerState<DayScreen> {
         referenceDate: widget.date,
       );
       final completions = await scheduleService.getCompletionsForDate(
-        householdId: profile!.householdId!,
+        householdId: widget.householdId,
         petId: widget.pet.id,
         date: widget.date,
       );
 
       _channel?.unsubscribe();
       _channel = scheduleService.subscribeToCompletions(
-        householdId: profile.householdId!,
+        householdId: widget.householdId,
         petId: widget.pet.id,
         date: widget.date,
         onChange: () => _refreshCompletions(),
@@ -106,11 +110,10 @@ class _DayScreenState extends ConsumerState<DayScreen> {
   }
 
   Future<void> _refreshCompletions() async {
-    final profile = await ref.read(profileProvider.future);
-    if (profile?.householdId == null || !mounted) return;
+    if (!mounted) return;
 
     final completions = await ref.read(scheduleServiceProvider).getCompletionsForDate(
-          householdId: profile!.householdId!,
+          householdId: widget.householdId,
           petId: widget.pet.id,
           date: widget.date,
         );
@@ -122,20 +125,19 @@ class _DayScreenState extends ConsumerState<DayScreen> {
   }
 
   Future<void> _toggleTask(ScheduleTask task, bool completed) async {
-    final profile = await ref.read(profileProvider.future);
-    final user = ref.read(authServiceProvider).currentUser;
-    if (profile?.householdId == null || user == null) return;
+    final userId = ref.read(authServiceProvider).currentUserId;
+    if (userId == null) return;
 
     setState(() => _loadingTasks.add(task.id));
     try {
       final service = ref.read(scheduleServiceProvider);
       if (completed) {
         await service.completeTask(
-          householdId: profile!.householdId!,
+          householdId: widget.householdId,
           petId: widget.pet.id,
           taskId: task.id,
           date: widget.date,
-          userId: user.id,
+          userId: userId,
         );
         Analytics.trackTaskComplete(
           taskId: task.id,
@@ -146,7 +148,7 @@ class _DayScreenState extends ConsumerState<DayScreen> {
         );
       } else {
         await service.uncompleteTask(
-          householdId: profile!.householdId!,
+          householdId: widget.householdId,
           petId: widget.pet.id,
           taskId: task.id,
           date: widget.date,
@@ -161,9 +163,8 @@ class _DayScreenState extends ConsumerState<DayScreen> {
   Future<void> _markAllCompleted() async {
     if (_markingAll) return;
 
-    final profile = await ref.read(profileProvider.future);
-    final user = ref.read(authServiceProvider).currentUser;
-    if (profile?.householdId == null || user == null) return;
+    final userId = ref.read(authServiceProvider).currentUserId;
+    if (userId == null) return;
 
     final incompleteTaskIds = _tasks
         .where((task) => !_completions.containsKey(task.id))
@@ -174,11 +175,11 @@ class _DayScreenState extends ConsumerState<DayScreen> {
     setState(() => _markingAll = true);
     try {
       await ref.read(scheduleServiceProvider).completeAllTasks(
-            householdId: profile!.householdId!,
+            householdId: widget.householdId,
             petId: widget.pet.id,
             taskIds: incompleteTaskIds,
             date: widget.date,
-            userId: user.id,
+            userId: userId,
           );
       await _refreshCompletions();
     } finally {
@@ -274,6 +275,8 @@ class _DayScreenState extends ConsumerState<DayScreen> {
     final completedCount = _completions.length;
     final totalCount = _tasks.length;
     final allCompleted = totalCount > 0 && completedCount >= totalCount;
+    final roleAsync = ref.watch(currentRoleProvider);
+    final isGuest = roleAsync.valueOrNull == HouseholdRole.guest;
     final accent = _theme.progressAccent;
 
     return Theme(
@@ -317,7 +320,7 @@ class _DayScreenState extends ConsumerState<DayScreen> {
                               const SizedBox(height: 16),
                               _TipBox(plan: _plan!, theme: _theme),
                             ],
-                            if (_tasks.isNotEmpty) ...[
+                            if (_tasks.isNotEmpty && !isGuest) ...[
                               const SizedBox(height: 16),
                               SizedBox(
                                 width: double.infinity,

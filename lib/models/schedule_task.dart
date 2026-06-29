@@ -2,6 +2,7 @@ class ScheduleTask {
   const ScheduleTask({
     required this.id,
     required this.planId,
+    this.petId,
     required this.sortOrder,
     required this.timeLabel,
     required this.category,
@@ -9,10 +10,12 @@ class ScheduleTask {
     this.subtitle,
     required this.icon,
     required this.section,
+    this.isCustom = false,
   });
 
   final String id;
-  final String planId;
+  final String? planId;
+  final String? petId;
   final int sortOrder;
   final String timeLabel;
   final String category;
@@ -20,18 +23,21 @@ class ScheduleTask {
   final String? subtitle;
   final String icon;
   final String section;
+  final bool isCustom;
 
   factory ScheduleTask.fromJson(Map<String, dynamic> json) {
     return ScheduleTask(
       id: json['id'] as String,
-      planId: json['plan_id'] as String,
-      sortOrder: json['sort_order'] as int,
+      planId: json['plan_id'] as String?,
+      petId: json['pet_id'] as String?,
+      sortOrder: (json['sort_order'] as num).toInt(),
       timeLabel: json['time_label'] as String,
       category: json['category'] as String,
       title: json['title'] as String,
       subtitle: json['subtitle'] as String?,
       icon: json['icon'] as String,
       section: json['section'] as String,
+      isCustom: json['is_custom'] as bool? ?? false,
     );
   }
 }

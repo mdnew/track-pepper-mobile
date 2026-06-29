@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'config/demo_mode.dart';
 import 'config/env.dart';
 import 'models/profile.dart';
 import 'providers/providers.dart';
@@ -11,6 +12,7 @@ import 'screens/auth/reset_password_screen.dart';
 import 'screens/calendar/calendar_screen.dart';
 import 'theme/app_theme.dart';
 import 'utils/analytics.dart';
+import 'widgets/demo_banner.dart';
 import 'widgets/logo.dart';
 
 class TrackPepperApp extends ConsumerWidget {
@@ -18,7 +20,7 @@ class TrackPepperApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!Env.isConfigured) {
+    if (!Env.isConfigured && !isRoadmapDemo) {
       return MaterialApp(
         title: 'TrackPepper',
         theme: AppTheme.light,
@@ -54,7 +56,7 @@ class TrackPepperApp extends ConsumerWidget {
           Analytics.setAnalyticsUser(
             userId,
             hasHousehold: profile?.householdId != null,
-            householdId: profile?.householdId,
+            householdId: profile?.activeHouseholdId ?? profile?.householdId,
           );
         }
       });
@@ -71,27 +73,38 @@ class TrackPepperApp extends ConsumerWidget {
       title: 'TrackPepper',
       theme: AppTheme.light,
       debugShowCheckedModeBanner: false,
-      home: authState.when(
-        loading: () => const _SplashScreen(),
-        error: (e, _) => _ConfigErrorScreen(message: e.toString()),
-        data: (state) {
-          final session = state.session;
-          if (pendingPasswordRecovery && session != null) {
-            return ResetPasswordScreen(
-              onComplete: () {
-                ref.read(pendingPasswordRecoveryProvider.notifier).state = false;
-                ref.invalidate(profileProvider);
-              },
-            );
-          }
-          if (session == null) {
-            ref.read(pendingPasswordRecoveryProvider.notifier).state = false;
-            return const AuthScreen();
-          }
+      home: isRoadmapDemo
+          ? const Scaffold(
+              body: SafeArea(
+                child: Column(
+                  children: [
+                    DemoBanner(),
+                    Expanded(child: CalendarScreen()),
+                  ],
+                ),
+              ),
+            )
+          : authState.when(
+              loading: () => const _SplashScreen(),
+              error: (e, _) => _ConfigErrorScreen(message: e.toString()),
+              data: (state) {
+                final session = state.session;
+                if (pendingPasswordRecovery && session != null) {
+                  return ResetPasswordScreen(
+                    onComplete: () {
+                      ref.read(pendingPasswordRecoveryProvider.notifier).state = false;
+                      ref.invalidate(profileProvider);
+                    },
+                  );
+                }
+                if (session == null) {
+                  ref.read(pendingPasswordRecoveryProvider.notifier).state = false;
+                  return const AuthScreen();
+                }
 
-          return const _AuthenticatedRouter();
-        },
-      ),
+                return const _AuthenticatedRouter();
+              },
+            ),
     );
   }
 }
@@ -106,7 +119,7 @@ void _syncAnalyticsIdentity(WidgetRef ref, String? userId) {
     Analytics.setAnalyticsUser(
       userId,
       hasHousehold: profile?.householdId != null,
-      householdId: profile?.householdId,
+      householdId: profile?.activeHouseholdId ?? profile?.householdId,
     );
   });
 }
