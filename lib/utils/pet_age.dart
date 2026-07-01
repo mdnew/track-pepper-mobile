@@ -66,6 +66,16 @@ String? formatPetNamesLine(List<Pet> pets) {
   return pets.map((pet) => '${pet.species.emoji} ${pet.name}').join(' · ');
 }
 
+/// Calendar subtitle: up to two names, then "First and N others".
+String? formatCalendarPetNamesLine(List<Pet> pets) {
+  if (pets.isEmpty) return null;
+  if (pets.length <= 2) return formatPetNamesLine(pets);
+
+  final first = pets.first;
+  final others = pets.length - 1;
+  return '${first.species.emoji} ${first.name} and $others others';
+}
+
 String? formatPetsLine(List<Pet> pets) {
   if (pets.isEmpty) return null;
   return pets.map(formatPetSummary).join(' · ');

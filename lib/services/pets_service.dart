@@ -1,7 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../config/demo_mode.dart';
-import '../demo/roadmap_demo_store.dart';
 import '../models/pet.dart';
 import '../utils/pet_age.dart';
 import 'auth_service.dart';
@@ -20,7 +18,6 @@ class PetsService {
 
   Future<String> _requireHouseholdId(String? householdId) async {
     if (householdId != null) return householdId;
-    if (isRoadmapDemo) return RoadmapDemoStore.instance.getActiveHouseholdId();
     final profile = await _authService.getProfile();
     final resolved = _authService.resolveActiveHouseholdId(profile);
     if (resolved == null) {
@@ -31,9 +28,6 @@ class PetsService {
 
   Future<List<Pet>> getPets({String? householdId}) async {
     final resolvedHouseholdId = await _requireHouseholdId(householdId);
-    if (isRoadmapDemo) {
-      return RoadmapDemoStore.instance.getPets(resolvedHouseholdId);
-    }
 
     final data = await _requiredClient
         .from('pets')
@@ -56,14 +50,6 @@ class PetsService {
     final trimmed = name.trim();
     if (trimmed.isEmpty) {
       throw ArgumentError('Pet name is required.');
-    }
-    if (isRoadmapDemo) {
-      return RoadmapDemoStore.instance.createPet(
-        resolvedHouseholdId,
-        trimmed,
-        formatDateOfBirth(dateOfBirth),
-        species,
-      );
     }
 
     final data = await _requiredClient
@@ -91,12 +77,6 @@ class PetsService {
       throw ArgumentError('Pet name is required.');
     }
 
-    if (isRoadmapDemo) {
-      RoadmapDemoStore.instance
-          .updatePet(id, trimmed, formatDateOfBirth(dateOfBirth), species);
-      return;
-    }
-
     await _requiredClient.from('pets').update({
       'name': trimmed,
       'date_of_birth': formatDateOfBirth(dateOfBirth),
@@ -105,10 +85,6 @@ class PetsService {
   }
 
   Future<void> deletePet(String id) async {
-    if (isRoadmapDemo) {
-      RoadmapDemoStore.instance.deletePet(id);
-      return;
-    }
     await _requiredClient.from('pets').delete().eq('id', id);
   }
 }

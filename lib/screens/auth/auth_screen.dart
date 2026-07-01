@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/providers.dart';
+import '../../theme/app_text_styles.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/analytics.dart';
 import '../../widgets/logo.dart';
@@ -109,7 +110,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
               Text(
                 'Family puppy schedule',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.headerSubtitle, fontSize: 14),
+                style: TextStyle(color: AppColors.headerSubtitle, fontSize: AppFonts.sz(14)),
               ),
               const SizedBox(height: 32),
               TabBar(
@@ -131,8 +132,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(_error!,
-                      style: const TextStyle(
-                          color: AppColors.train, fontSize: 13)),
+                      style: TextStyle(
+                          color: AppColors.train, fontSize: AppFonts.sz(13))),
                 ),
                 const SizedBox(height: 16),
               ],
@@ -280,7 +281,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
               'Next: join an existing household or create a new one.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: AppFonts.sz(12),
                 color: AppColors.textSecondary.withValues(alpha: 0.85),
               ),
             ),

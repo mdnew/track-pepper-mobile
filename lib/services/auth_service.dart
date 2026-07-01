@@ -2,9 +2,7 @@ import 'dart:math';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../config/demo_mode.dart';
 import '../config/env.dart';
-import '../demo/roadmap_demo_store.dart';
 import '../models/household.dart';
 import '../models/household_member.dart';
 import '../models/household_membership.dart';
@@ -23,43 +21,18 @@ class AuthService {
     return client;
   }
 
-  User? get currentUser => isRoadmapDemo ? null : _client?.auth.currentUser;
-  String? get currentUserId =>
-      isRoadmapDemo ? demoUserId : _client?.auth.currentUser?.id;
-  String? get currentUserEmail =>
-      isRoadmapDemo ? demoUserEmail : _client?.auth.currentUser?.email;
+  User? get currentUser => _client?.auth.currentUser;
+  String? get currentUserId => _client?.auth.currentUser?.id;
+  String? get currentUserEmail => _client?.auth.currentUser?.email;
 
-  Stream<AuthState> get authStateChanges {
-    if (isRoadmapDemo) {
-      final session = Session.fromJson({
-        'access_token': 'demo-token',
-        'refresh_token': 'demo-refresh',
-        'token_type': 'bearer',
-        'expires_in': 3600,
-        'user': {
-          'id': demoUserId,
-          'aud': 'authenticated',
-          'role': 'authenticated',
-          'email': demoUserEmail,
-          'email_confirmed_at': DateTime.now().toIso8601String(),
-          'app_metadata': <String, dynamic>{},
-          'user_metadata': {'display_name': 'Demo User'},
-          'created_at': DateTime.now().toIso8601String(),
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-      });
-      return Stream.value(AuthState(AuthChangeEvent.initialSession, session));
-    }
-    return _requiredClient.auth.onAuthStateChange;
-  }
+  Stream<AuthState> get authStateChanges =>
+      _requiredClient.auth.onAuthStateChange;
 
   Future<void> signIn(String email, String password) async {
-    if (isRoadmapDemo) return;
     await _requiredClient.auth.signInWithPassword(email: email, password: password);
   }
 
   Future<void> signUp(String email, String password, String displayName) async {
-    if (isRoadmapDemo) return;
     await _requiredClient.auth.signUp(
       email: email,
       password: password,
@@ -68,7 +41,6 @@ class AuthService {
   }
 
   Future<void> signOut() async {
-    if (isRoadmapDemo) return;
     await _requiredClient.auth.signOut(scope: SignOutScope.global);
   }
 
@@ -122,7 +94,6 @@ class AuthService {
   }
 
   Future<Profile?> getProfile() async {
-    if (isRoadmapDemo) return RoadmapDemoStore.instance.getProfile();
     final user = currentUserId;
     if (user == null) return null;
 
@@ -137,10 +108,6 @@ class AuthService {
   }
 
   Future<void> updateDisplayName(String displayName) async {
-    if (isRoadmapDemo) {
-      RoadmapDemoStore.instance.updateDisplayName(displayName);
-      return;
-    }
     final user = currentUserId;
     if (user == null) throw StateError('Not signed in');
 
@@ -155,10 +122,6 @@ class AuthService {
     if (trimmed.isEmpty) {
       throw ArgumentError('Household name is required.');
     }
-    if (isRoadmapDemo) {
-      RoadmapDemoStore.instance.updateHouseholdName(householdId, trimmed);
-      return;
-    }
     await _requiredClient
         .from('households')
         .update({'name': trimmed})
@@ -166,23 +129,16 @@ class AuthService {
   }
 
   Future<void> updatePassword(String newPassword) async {
-    if (isRoadmapDemo) return;
     if (currentUserId == null) throw StateError('Not signed in');
     await _requiredClient.auth.updateUser(UserAttributes(password: newPassword));
   }
 
   String? resolveActiveHouseholdId(Profile? profile) {
-    if (isRoadmapDemo) return RoadmapDemoStore.instance.getActiveHouseholdId();
     if (profile == null) return null;
     return profile.activeHouseholdId ?? profile.householdId;
   }
 
   Future<void> setActiveHousehold(String householdId) async {
-    if (isRoadmapDemo) {
-      RoadmapDemoStore.instance.setActiveHousehold(householdId);
-      await writeActiveHouseholdId(householdId);
-      return;
-    }
     await writeActiveHouseholdId(householdId);
     await _requiredClient.rpc<void>(
       'set_active_household',
@@ -191,7 +147,6 @@ class AuthService {
   }
 
   Future<List<HouseholdMembership>> getMemberships() async {
-    if (isRoadmapDemo) return RoadmapDemoStore.instance.getMemberships();
     final userId = currentUserId;
     if (userId == null) return [];
     final data = await _requiredClient
@@ -205,7 +160,6 @@ class AuthService {
   }
 
   Future<Household?> getHousehold(String householdId) async {
-    if (isRoadmapDemo) return RoadmapDemoStore.instance.getHousehold(householdId);
     final data = await _requiredClient
         .from('households')
         .select()
@@ -217,9 +171,6 @@ class AuthService {
   }
 
   Future<List<HouseholdMember>> getHouseholdMembers(String householdId) async {
-    if (isRoadmapDemo) {
-      return RoadmapDemoStore.instance.getHouseholdMembers(householdId);
-    }
     final data = await _requiredClient
         .from('household_members')
         .select(
@@ -239,7 +190,6 @@ class AuthService {
   }
 
   Future<List<HouseholdMember>> getGuestMembers(String householdId) async {
-    if (isRoadmapDemo) return RoadmapDemoStore.instance.getGuestMembers(householdId);
     final data = await _requiredClient
         .from('household_members')
         .select(
@@ -267,10 +217,6 @@ class AuthService {
   }
 
   Future<void> leaveHousehold(String householdId) async {
-    if (isRoadmapDemo) {
-      RoadmapDemoStore.instance.leaveHousehold(householdId);
-      return;
-    }
     await _requiredClient.rpc<void>(
       'leave_household',
       params: {'p_household_id': householdId},
@@ -278,13 +224,27 @@ class AuthService {
   }
 
   Future<void> removeMember(String householdId, String userId) async {
-    if (isRoadmapDemo) {
-      RoadmapDemoStore.instance.removeMember(householdId, userId);
-      return;
-    }
     await _requiredClient.rpc<void>(
       'remove_household_member',
       params: {'p_household_id': householdId, 'p_user_id': userId},
+    );
+  }
+
+  Future<void> setMemberRole(
+    String householdId,
+    String userId,
+    HouseholdRole role,
+  ) async {
+    if (role != HouseholdRole.member && role != HouseholdRole.admin) {
+      throw ArgumentError('Role must be member or admin');
+    }
+    await _requiredClient.rpc<void>(
+      'set_household_member_role',
+      params: {
+        'p_household_id': householdId,
+        'p_user_id': userId,
+        'p_role': role.name,
+      },
     );
   }
 
@@ -295,21 +255,30 @@ class AuthService {
     String validUntil,
     List<int>? validDays,
   ) async {
-    if (isRoadmapDemo) {
-      RoadmapDemoStore.instance.addGuestByEmail(
-        householdId,
-        email,
-        validFrom,
-        validUntil,
-        validDays,
-      );
-      return;
-    }
     await _requiredClient.rpc<void>(
       'add_guest_by_email',
       params: {
         'p_household_id': householdId,
         'p_email': email.trim(),
+        'p_valid_from': validFrom,
+        'p_valid_until': validUntil,
+        'p_valid_days': validDays,
+      },
+    );
+  }
+
+  Future<void> updateGuestAccess(
+    String householdId,
+    String userId,
+    String validFrom,
+    String validUntil,
+    List<int>? validDays,
+  ) async {
+    await _requiredClient.rpc<void>(
+      'update_guest_access',
+      params: {
+        'p_household_id': householdId,
+        'p_user_id': userId,
         'p_valid_from': validFrom,
         'p_valid_until': validUntil,
         'p_valid_days': validDays,

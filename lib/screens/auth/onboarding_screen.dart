@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_text_styles.dart';
 
 import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/analytics.dart';
+import '../../utils/local_catalog_cache.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -92,13 +93,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('🎉', textAlign: TextAlign.center, style: TextStyle(fontSize: 48)),
+                Text('🎉', textAlign: TextAlign.center, style: TextStyle(fontSize: AppFonts.sz(48))),
                 const SizedBox(height: 16),
                 Text(
                   'Household created!',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.nunito(
-                    fontSize: 24,
+                  style: AppFonts.nunito(
+                    fontSize: AppFonts.sz(24),
                     fontWeight: FontWeight.w800,
                     color: AppColors.textPrimary,
                   ),
@@ -119,8 +120,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   child: Text(
                     _createdInviteCode!,
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.nunito(
-                      fontSize: 28,
+                    style: AppFonts.nunito(
+                      fontSize: AppFonts.sz(28),
                       fontWeight: FontWeight.w800,
                       letterSpacing: 2,
                       color: AppColors.textPrimary,
@@ -151,6 +152,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         actions: [
           TextButton(
             onPressed: () async {
+              await clearLocalCatalogCache();
+              ref.read(scheduleServiceProvider).invalidateScheduleCache();
               await ref.read(authServiceProvider).signOut();
               ref.invalidate(profileProvider);
             },
@@ -167,7 +170,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               Text(
                 'Join your family\'s schedule, or create a new household if you\'re the first one here.',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: AppFonts.sz(14),
                   height: 1.45,
                   color: AppColors.textSecondary.withValues(alpha: 0.9),
                 ),
@@ -217,7 +220,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     color: AppColors.trainBg,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(_error!, style: const TextStyle(color: AppColors.train, fontSize: 13)),
+                  child: Text(_error!, style: TextStyle(color: AppColors.train, fontSize: AppFonts.sz(13))),
                 ),
                 const SizedBox(height: 16),
               ],

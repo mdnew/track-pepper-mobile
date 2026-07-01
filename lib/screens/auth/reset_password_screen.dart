@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_text_styles.dart';
 
 import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
@@ -75,8 +75,8 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                 Text(
                   'Choose a new password',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.nunito(
-                    fontSize: 24,
+                  style: AppFonts.nunito(
+                    fontSize: AppFonts.sz(24),
                     fontWeight: FontWeight.w800,
                     color: AppColors.textPrimary,
                   ),
@@ -86,7 +86,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                   'You opened a reset link from your email. Enter a new password to finish.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: AppFonts.sz(14),
                     height: 1.5,
                     color: AppColors.textSecondary.withValues(alpha: 0.9),
                   ),
@@ -101,7 +101,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                     ),
                     child: Text(
                       _error!,
-                      style: const TextStyle(color: AppColors.train, fontSize: 13),
+                      style: TextStyle(color: AppColors.train, fontSize: AppFonts.sz(13)),
                     ),
                   ),
                   const SizedBox(height: 16),

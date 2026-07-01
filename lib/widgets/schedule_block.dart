@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_text_styles.dart';
+import 'emoji_text.dart';
 import 'package:intl/intl.dart';
 
 import '../models/completion.dart';
@@ -16,16 +17,20 @@ class ScheduleBlock extends StatelessWidget {
     required this.species,
     this.theme,
     this.completion,
-    required this.onToggle,
+    this.onToggle,
+    this.onEdit,
     this.loading = false,
+    this.readOnly = false,
   });
 
   final ScheduleTask task;
   final PetSpecies species;
   final SpeciesTheme? theme;
   final Completion? completion;
-  final ValueChanged<bool> onToggle;
+  final ValueChanged<bool>? onToggle;
+  final VoidCallback? onEdit;
   final bool loading;
+  final bool readOnly;
 
   bool get isNight => task.category == 'night';
   bool get isCompleted => completion != null;
@@ -57,14 +62,14 @@ class ScheduleBlock extends StatelessWidget {
               width: 72,
               child: Text(
                 task.timeLabel,
-                style: GoogleFonts.nunito(
+                style: AppFonts.nunito(
                   fontWeight: FontWeight.w800,
-                  fontSize: 13,
+                  fontSize: AppFonts.sz(13),
                   color: timeColor,
                 ),
               ),
             ),
-          Text(task.icon, style: const TextStyle(fontSize: 20)),
+          EmojiText(task.icon),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -74,7 +79,7 @@ class ScheduleBlock extends StatelessWidget {
                   task.title,
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    fontSize: 14,
+                    fontSize: AppFonts.sz(14),
                     color: textColor,
                   ),
                 ),
@@ -82,7 +87,7 @@ class ScheduleBlock extends StatelessWidget {
                   Text(
                     task.subtitle!,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: AppFonts.sz(12),
                       color: isNight
                           ? textColor.withValues(alpha: 0.75)
                           : secondaryText,
@@ -95,7 +100,7 @@ class ScheduleBlock extends StatelessWidget {
                     'Checked by ${completion!.completedByName ?? 'someone'} '
                     'at ${DateFormat.jm().format(completion!.completedAt.toLocal())}',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: AppFonts.sz(11),
                       color: attributionColor,
                       fontWeight: FontWeight.w600,
                     ),
@@ -104,25 +109,45 @@ class ScheduleBlock extends StatelessWidget {
               ],
             ),
           ),
-          SizedBox(
-            width: 44,
-            child: loading
-                ? const Center(
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+          if (readOnly)
+            OutlinedButton(
+              onPressed: onEdit,
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                foregroundColor: AppColors.header,
+                side: BorderSide(
+                  color: AppColors.divider.withValues(alpha: 0.4),
+                ),
+                backgroundColor: Colors.white,
+                textStyle: AppFonts.nunito(
+                  fontSize: AppFonts.sz(12),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              child: const Text('Edit'),
+            )
+          else
+            SizedBox(
+              width: 44,
+              child: loading
+                  ? const Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : Checkbox(
+                      value: isCompleted,
+                      onChanged: (v) => onToggle?.call(v ?? false),
+                      activeColor: borderColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
-                  )
-                : Checkbox(
-                    value: isCompleted,
-                    onChanged: (v) => onToggle(v ?? false),
-                    activeColor: borderColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-          ),
+            ),
         ],
       ),
     );

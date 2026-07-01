@@ -1,5 +1,3 @@
-import 'demo_mode.dart';
-
 class Env {
   static const supabaseUrl = String.fromEnvironment(
     'SUPABASE_URL',
@@ -11,12 +9,11 @@ class Env {
     defaultValue: 'YOUR_SUPABASE_ANON_KEY',
   );
 
-  static bool get roadmapDemo => isRoadmapDemo;
-
-  static bool get isConfigured =>
-      roadmapDemo ||
+  static bool get hasSupabaseCredentials =>
       !supabaseUrl.contains('YOUR_PROJECT') &&
       supabaseAnonKey != 'YOUR_SUPABASE_ANON_KEY';
+
+  static bool get isConfigured => hasSupabaseCredentials;
 
   /// Add this URL in Supabase → Authentication → URL Configuration → Redirect URLs.
   static const passwordResetRedirectUrl =

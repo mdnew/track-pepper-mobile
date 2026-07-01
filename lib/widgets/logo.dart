@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_text_styles.dart';
 
 enum LogoVariant { brand, header }
 
@@ -19,13 +19,13 @@ class Logo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isBrand = variant == LogoVariant.brand;
-    final fontSize = isBrand ? 32.0 : 21.6;
+    final fontSize = AppFonts.sz(isBrand ? 32.0 : 21.6);
     final trackColor = isBrand ? _trackBrand : _trackHeader;
     final pepperColor = isBrand ? _pepperBrand : _pepperHeader;
     final dogHeight = fontSize * 1.35;
     final gap = fontSize * 0.35;
 
-    final textStyle = GoogleFonts.nunito(
+    final textStyle = AppFonts.nunito(
       fontSize: fontSize,
       fontWeight: FontWeight.w800,
       height: 1,

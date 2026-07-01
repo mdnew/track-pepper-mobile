@@ -1,6 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import 'app_text_styles.dart';
 import '../models/pet.dart';
 
 class AppColors {
@@ -98,8 +99,12 @@ class AppColors {
 
 class AppTheme {
   static ThemeData get light {
-    final lato = GoogleFonts.latoTextTheme();
-    final nunito = GoogleFonts.nunitoTextTheme();
+    final nunito = AppFonts.nunitoTextTheme();
+    final bodyTextTheme = AppFonts.bumpTextTheme(
+      Typography.material2021(
+        platform: defaultTargetPlatform,
+      ).black.apply(bodyColor: AppColors.textPrimary),
+    );
 
     return ThemeData(
       useMaterial3: true,
@@ -108,7 +113,7 @@ class AppTheme {
         seedColor: AppColors.header,
         surface: AppColors.background,
       ),
-      textTheme: lato.apply(bodyColor: AppColors.textPrimary),
+      textTheme: bodyTextTheme,
       appBarTheme: AppBarTheme(
         backgroundColor: AppColors.header,
         foregroundColor: Colors.white,

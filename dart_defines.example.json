@@ -1,6 +1,5 @@
 {
   "SUPABASE_URL": "https://YOUR_PROJECT.supabase.co",
   "SUPABASE_ANON_KEY": "your_anon_key_here",
-  "PASSWORD_AUTOFILL_DOMAIN": "your-production-domain.com",
-  "ROADMAP_DEMO": "false"
+  "PASSWORD_AUTOFILL_DOMAIN": "your-production-domain.com"
 }

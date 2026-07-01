@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_text_styles.dart';
 
 import '../../theme/app_theme.dart';
 
@@ -16,8 +16,8 @@ class SectionDivider extends StatelessWidget {
       child: Text(
         label,
         textAlign: TextAlign.center,
-        style: GoogleFonts.nunito(
-          fontSize: 11,
+        style: AppFonts.nunito(
+          fontSize: AppFonts.sz(11),
           fontWeight: FontWeight.w700,
           letterSpacing: 1.5,
           color: color ?? AppColors.divider,

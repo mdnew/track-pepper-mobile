@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/schedule_task.dart';
@@ -51,4 +52,30 @@ int currentTimeInsertIndex(List<ScheduleTask> sortedTasks, DateTime now) {
 
 bool isSameCalendarDay(DateTime a, DateTime b) {
   return a.year == b.year && a.month == b.month && a.day == b.day;
+}
+
+String? validateTimeLabel(String value) {
+  final trimmed = value.trim().replaceFirst(RegExp(r'^~+'), '');
+  if (trimmed.isEmpty || scheduleMinutesFromLabel(trimmed) == null) {
+    return null;
+  }
+
+  try {
+    final parsed = DateFormat('h:mm a').parse(trimmed);
+    return DateFormat('h:mm a').format(parsed);
+  } catch (_) {
+    return null;
+  }
+}
+
+TimeOfDay? timeOfDayFromLabel(String timeLabel) {
+  final minutes = scheduleMinutesFromLabel(timeLabel);
+  if (minutes == null) return null;
+  return TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60);
+}
+
+String timeLabelFromTimeOfDay(TimeOfDay time) {
+  final now = DateTime.now();
+  final dateTime = DateTime(now.year, now.month, now.day, time.hour, time.minute);
+  return DateFormat('h:mm a').format(dateTime);
 }

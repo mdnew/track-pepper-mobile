@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_text_styles.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config/recommendations.dart';
@@ -46,8 +46,8 @@ class RecommendationsSection extends StatelessWidget {
         if (title.isNotEmpty) ...[
           Text(
             title,
-            style: GoogleFonts.nunito(
-              fontSize: compact ? 13 : 15,
+            style: AppFonts.nunito(
+              fontSize: AppFonts.sz(compact ? 13 : 15),
               fontWeight: FontWeight.w800,
               color: textPrimary,
             ),
@@ -74,7 +74,7 @@ class RecommendationsSection extends StatelessWidget {
                     children: [
                       Text(
                         categoryIcon(item.category),
-                        style: TextStyle(fontSize: compact ? 20 : 22),
+                        style: TextStyle(fontSize: AppFonts.sz(compact ? 20 : 22)),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -84,7 +84,7 @@ class RecommendationsSection extends StatelessWidget {
                             Text(
                               categoryLabel(item.category).toUpperCase(),
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: AppFonts.sz(11),
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.4,
                                 color: textSecondary,
@@ -93,8 +93,8 @@ class RecommendationsSection extends StatelessWidget {
                             const SizedBox(height: 2),
                             Text(
                               item.title,
-                              style: GoogleFonts.nunito(
-                                fontSize: compact ? 14 : 15,
+                              style: AppFonts.nunito(
+                                fontSize: AppFonts.sz(compact ? 14 : 15),
                                 fontWeight: FontWeight.w800,
                                 color: textPrimary,
                               ),
@@ -103,7 +103,7 @@ class RecommendationsSection extends StatelessWidget {
                             Text(
                               item.description,
                               style: TextStyle(
-                                fontSize: compact ? 12 : 13,
+                                fontSize: AppFonts.sz(compact ? 12 : 13),
                                 height: 1.45,
                                 color: textSecondary,
                               ),
@@ -126,7 +126,7 @@ class RecommendationsSection extends StatelessWidget {
         Text(
           affiliateDisclosure,
           style: TextStyle(
-            fontSize: 11,
+            fontSize: AppFonts.sz(11),
             height: 1.45,
             color: textSecondary.withValues(alpha: 0.85),
           ),

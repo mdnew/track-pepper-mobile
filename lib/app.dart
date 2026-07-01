@@ -1,8 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'config/demo_mode.dart';
 import 'config/env.dart';
 import 'models/profile.dart';
 import 'providers/providers.dart';
@@ -10,17 +11,24 @@ import 'screens/auth/auth_screen.dart';
 import 'screens/auth/onboarding_screen.dart';
 import 'screens/auth/reset_password_screen.dart';
 import 'screens/calendar/calendar_screen.dart';
+import 'theme/app_text_styles.dart';
 import 'theme/app_theme.dart';
 import 'utils/analytics.dart';
-import 'widgets/demo_banner.dart';
+import 'utils/startup_catalog.dart';
+import 'utils/startup_warmup.dart';
 import 'widgets/logo.dart';
+
+bool _hasRestoredSupabaseSession() {
+  if (!Env.hasSupabaseCredentials) return false;
+  return Supabase.instance.client.auth.currentSession != null;
+}
 
 class TrackPepperApp extends ConsumerWidget {
   const TrackPepperApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!Env.isConfigured && !isRoadmapDemo) {
+    if (!Env.isConfigured) {
       return MaterialApp(
         title: 'TrackPepper',
         theme: AppTheme.light,
@@ -48,6 +56,7 @@ class TrackPepperApp extends ConsumerWidget {
 
     ref.listen<AsyncValue<Profile?>>(profileProvider, (previous, next) {
       next.whenData((profile) {
+        writeHasHouseholdHint(profile?.hasHousehold ?? false);
         final userId = authState.maybeWhen(
           data: (state) => state.session?.user.id,
           orElse: () => null,
@@ -73,19 +82,10 @@ class TrackPepperApp extends ConsumerWidget {
       title: 'TrackPepper',
       theme: AppTheme.light,
       debugShowCheckedModeBanner: false,
-      home: isRoadmapDemo
-          ? const Scaffold(
-              body: SafeArea(
-                child: Column(
-                  children: [
-                    DemoBanner(),
-                    Expanded(child: CalendarScreen()),
-                  ],
-                ),
-              ),
-            )
-          : authState.when(
-              loading: () => const _SplashScreen(),
+      home: authState.when(
+              loading: () => _hasRestoredSupabaseSession()
+                  ? const _AuthenticatedRouter()
+                  : const _StartupSplashScreen(),
               error: (e, _) => _ConfigErrorScreen(message: e.toString()),
               data: (state) {
                 final session = state.session;
@@ -132,7 +132,7 @@ class _AuthenticatedRouter extends ConsumerWidget {
     final profileAsync = ref.watch(profileProvider);
 
     return profileAsync.when(
-      loading: () => const _SplashScreen(),
+      loading: () => const _StartupSplashScreen(prefetchCatalog: true),
       error: (e, _) => _ConfigErrorScreen(message: e.toString()),
       data: (profile) {
         if (profile == null || !profile.hasHousehold) {
@@ -144,21 +144,37 @@ class _AuthenticatedRouter extends ConsumerWidget {
   }
 }
 
-class _SplashScreen extends StatelessWidget {
-  const _SplashScreen();
+class _StartupSplashScreen extends ConsumerStatefulWidget {
+  const _StartupSplashScreen({this.prefetchCatalog = false});
+
+  final bool prefetchCatalog;
+
+  @override
+  ConsumerState<_StartupSplashScreen> createState() => _StartupSplashScreenState();
+}
+
+class _StartupSplashScreenState extends ConsumerState<_StartupSplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        StartupWarmup.run(
+          ref,
+          context,
+          prefetchCatalog: widget.prefetchCatalog,
+        ),
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Logo(variant: LogoVariant.brand),
-            SizedBox(height: 16),
-            CircularProgressIndicator(),
-          ],
-        ),
+    return Scaffold(
+      backgroundColor: AppTheme.light.scaffoldBackgroundColor,
+      body: const Center(
+        child: Logo(variant: LogoVariant.brand),
       ),
     );
   }
@@ -183,7 +199,7 @@ class _ConfigErrorScreen extends StatelessWidget {
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14, height: 1.5),
+                style: TextStyle(fontSize: AppFonts.sz(14), height: 1.5),
               ),
             ],
           ),
