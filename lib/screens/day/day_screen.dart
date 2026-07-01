@@ -748,7 +748,8 @@ class _DayScreenState extends ConsumerState<DayScreen> {
     final buildNum = _buildCount;
 
     final dateLabel = DateFormat.yMMMMEEEEd().format(widget.date);
-    final completedCount = _completions.length;
+    final completedCount =
+        _tasks.where((task) => _completions.containsKey(task.id)).length;
     final totalCount = _tasks.length;
     final allCompleted = totalCount > 0 && completedCount >= totalCount;
     final isGuest = _isGuest;
